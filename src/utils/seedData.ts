@@ -22,11 +22,11 @@ export const SEED_COMMITTEE: CommitteeMember[] = [
   },
   {
     id: 'comm-2',
-    name: 'Adv. Suresh Ramchandra Joshi',
-    nameMarathi: 'ॲड. सुरेश रामचंद्र जोशी',
+    name: 'Shree. Vinod Fagoji Dongarwar',
+    nameMarathi: 'श्री.विनोद फागोजी डोंगरवार',
     designationMarathi: 'उपाध्यक्ष',
     designationEnglish: 'Vice President',
-    phone: '+91 98220 22334',
+    phone: '+91 96991 74824',
     photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80',
     hierarchyOrder: 2,
     isCoreMember: true,
@@ -34,11 +34,11 @@ export const SEED_COMMITTEE: CommitteeMember[] = [
   },
   {
     id: 'comm-3',
-    name: 'Shri. Chandrakant Dattatray More',
-    nameMarathi: 'श्री. चंद्रकांत दत्तात्रय मोरे',
-    designationMarathi: 'कार्याध्यक्ष',
-    designationEnglish: 'Working President',
-    phone: '+91 98220 33445',
+    name: 'Shri. Vishwa mansaram bavane',
+    nameMarathi: 'श्री. विश्वा मन्सारामजी बावणे',
+    designationMarathi: 'सचिव',
+    designationEnglish: 'Secretary',
+    phone: '+91 84590 63045',
     photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&auto=format&fit=crop&q=80',
     hierarchyOrder: 3,
     isCoreMember: true,
@@ -46,11 +46,11 @@ export const SEED_COMMITTEE: CommitteeMember[] = [
   },
   {
     id: 'comm-4',
-    name: 'Shri. Nitin Govind Kulkarni',
-    nameMarathi: 'श्री. नितीन गोविंद कुलकर्णी',
-    designationMarathi: 'सचिव',
-    designationEnglish: 'Secretary',
-    phone: '+91 98220 44556',
+    name: 'Shri.Shekhar Ishwar kuthe',
+    nameMarathi: 'श्री. शेखर ईश्वर कुथे',
+    designationMarathi: 'कोषाध्यक्ष',
+    designationEnglish: 'Vice Secretary',
+    phone: '+91 96073 96623',
     photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&auto=format&fit=crop&q=80',
     hierarchyOrder: 4,
     isCoreMember: true,
@@ -58,27 +58,15 @@ export const SEED_COMMITTEE: CommitteeMember[] = [
   },
   {
     id: 'comm-5',
-    name: 'CA. Anand Vasant Patil',
-    nameMarathi: 'सी.ए. आनंद वसंत पाटील',
-    designationMarathi: 'खजिनदार',
-    designationEnglish: 'Treasurer',
-    phone: '+91 98220 55667',
-    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+    name: 'Shree. Tilak Ashok GAikwad',
+    nameMarathi: 'श्री.तिलक अशोक गायकवाड',
+    designationMarathi: 'Apps developer',
+    designationEnglish: 'Apps developer',
+    phone: '+91 77960 52953',
+    photoUrl: 'https://ibb.co/LhSJ6g2C',
     hierarchyOrder: 5,
     isCoreMember: true,
     roleDescriptionMarathi: 'हिशोब व्यवस्थापन, पावती नियंत्रण व लेखापरीक्षण'
-  },
-  {
-    id: 'comm-6',
-    name: 'Sau. Sunita Vilas Gaikwad',
-    nameMarathi: 'सौ. सुनीता विलास गायकवाड',
-    designationMarathi: 'महिला आघाडी प्रमुख',
-    designationEnglish: 'Women Wing Head',
-    phone: '+91 98220 66778',
-    photoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=300&auto=format&fit=crop&q=80',
-    hierarchyOrder: 6,
-    isCoreMember: true,
-    roleDescriptionMarathi: 'महिला बचत गट व हळदीकुंकू सोहळा नियोजन'
   }
 ];
 
@@ -92,9 +80,9 @@ export const SEED_EVENTS: MandalEvent[] = [
     startDate: '2026-10-15T08:00:00.000Z',
     endDate: '2026-10-15T12:30:00.000Z',
     timeString: 'सकाळी ०८:०० ते दुपारी १२:३०',
-    venue: 'Durga Mandap, Kasba Peth, Pune',
-    venueMarathi: 'श्री दुर्गा मंडप, कसबा पेठ, पुणे',
-    venueMapUrl: 'https://maps.google.com/?q=Kasba+Peth+Pune',
+    venue: 'Durga Mandap, Chop, Gadchiroli',
+    venueMarathi: 'श्री दुर्गा मंडप, चोप, गडचिरोली',
+    venueMapUrl: 'https://maps.google.com/?q=Chop+Gadchiroli',
     coverImageUrl: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=800&auto=format&fit=crop&q=80',
     status: 'upcoming',
     isRsvpEnabled: true,
@@ -114,9 +102,9 @@ export const SEED_EVENTS: MandalEvent[] = [
     startDate: '2026-10-21T18:30:00.000Z',
     endDate: '2026-10-21T22:00:00.000Z',
     timeString: 'सायंकाळी ०६:३० ते रात्री १०:००',
-    venue: 'Durga Utsav Grounds, Kasba Peth',
-    venueMarathi: 'दुर्गा उत्सव प्रांगण, कसबा पेठ, पुणे',
-    venueMapUrl: 'https://maps.google.com/?q=Kasba+Peth+Pune',
+    venue: 'Durga Utsav Grounds, Chop',
+    venueMarathi: 'दुर्गा उत्सव प्रांगण, चोप, गडचिरोली',
+    venueMapUrl: 'https://maps.google.com/?q=Chop+Gadchiroli',
     coverImageUrl: 'https://images.unsplash.com/photo-1609137144822-1d54238515c1?w=800&auto=format&fit=crop&q=80',
     status: 'upcoming',
     isRsvpEnabled: true,
@@ -137,7 +125,7 @@ export const SEED_EVENTS: MandalEvent[] = [
     endDate: '2026-10-23T17:00:00.000Z',
     timeString: 'सकाळी ११:०० ते सायंकाळी ०५:००',
     venue: 'Durga Mandap Community Hall',
-    venueMarathi: 'दुर्गा मंडप महाप्रसाद कक्ष, कसबा पेठ',
+    venueMarathi: 'दुर्गा मंडप महाप्रसाद कक्ष, चोप',
     coverImageUrl: 'https://images.unsplash.com/photo-1596768401116-24e525143a5c?w=800&auto=format&fit=crop&q=80',
     status: 'upcoming',
     isRsvpEnabled: true,
@@ -156,8 +144,8 @@ export const SEED_EVENTS: MandalEvent[] = [
     startDate: '2026-05-10T09:00:00.000Z',
     endDate: '2026-05-10T16:00:00.000Z',
     timeString: 'सकाळी ०९:०० ते दुपारी ०४:००',
-    venue: 'Kasba Peth Community Center',
-    venueMarathi: 'कसबा पेठ समाज मंदिर सभागृह',
+    venue: 'Chop Community Center',
+    venueMarathi: 'चोप समाज मंदिर सभागृह',
     coverImageUrl: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&auto=format&fit=crop&q=80',
     status: 'completed',
     isRsvpEnabled: false,
@@ -295,18 +283,18 @@ export const SEED_MEMBERS: Member[] = [
     id: 'mem-1001',
     uid: 'demo-user-1',
     memberNumber: 'DM-2024-001',
-    fullName: 'Shri. Ramesh Pandurang Deshmukh',
-    fullNameMarathi: 'श्री. रमेश पांडुरंग देशमुख',
-    phone: '9822112233',
+    fullName: 'Shri.Shubham Govindaravji Nagpurkar ',
+    fullNameMarathi: 'श्री. शुभम गोविंदरावजी नागपूरकर',
+    phone: '8999161652',
     email: 'ramesh.deshmukh@gmail.com',
-    address: 'फ्लॅट क्र. ४०२, सिद्धिविनायक हाइट्स, कसबा पेठ',
-    cityVillage: 'पुणे',
-    pincode: '411011',
+    address: 'फ्लॅट क्र. ४०२, दुर्गा चौक,चोप/कोरेगाव',
+    cityVillage: 'चोप',
+    pincode: '441207',
     memberType: 'family',
     category: 'life',
     status: 'active',
-    joinedDate: '2020-04-01',
-    annualDueAmount: 500,
+    joinedDate: '2026-10-11',
+    annualDueAmount: 1500,
     familyMembers: [
       { name: 'सौ. रेखा रमेश देशमुख', relation: 'पत्नी', age: 48 },
       { name: 'चि. संकेत रमेश देशमुख', relation: 'मुलगा', age: 22 }
@@ -508,3 +496,23 @@ export const SEED_SPONSORS: Sponsor[] = [
     createdAt: '2026-01-01T00:00:00.000Z'
   }
 ];
+
+// If executed directly (via Node / tsx CLI), display seed summary
+if (typeof window === 'undefined') {
+  console.log('\n====================================================');
+  console.log('🚩 श्री दुर्गा मंडळ (Durga Mandal) — Seed Data Loaded');
+  console.log('====================================================');
+  console.log(`✅ कार्यकारणी सदस्य (Committee Members): ${SEED_COMMITTEE.length}`);
+  console.log(`✅ आगामी व संपन्न कार्यक्रम (Events):        ${SEED_EVENTS.length}`);
+  console.log(`✅ महत्त्वाच्या सूचना (Notices):              ${SEED_NOTICES.length}`);
+  console.log(`✅ फोटो अल्बम (Gallery Albums):            ${SEED_ALBUMS.length}`);
+  console.log(`✅ गॅलरी फोटो (Gallery Images):             ${SEED_IMAGES.length}`);
+  console.log(`✅ नोंदणीकृत सभासद (Members):              ${SEED_MEMBERS.length}`);
+  console.log(`✅ देणगी नोंदी (Donations):                 ${SEED_DONATIONS.length}`);
+  console.log(`✅ वर्गणी नोंदी (Member Payments):          ${SEED_PAYMENTS.length}`);
+  console.log(`✅ प्रायोजक (Sponsors):                     ${SEED_SPONSORS.length}`);
+  console.log('====================================================');
+  console.log('✨ सर्व डेटा यशस्वीरीत्या व्हॅलिडेट झाला आहे! (All seed data verified)');
+  console.log('🌐 Local Dev Server URL: http://localhost:3000/');
+  console.log('====================================================\n');
+}

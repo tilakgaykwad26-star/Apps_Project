@@ -183,7 +183,7 @@ export const DonatePage: React.FC = () => {
 
   const handleShareWhatsApp = () => {
     if (!completedDonation) return;
-    const msg = `॥ श्री दुर्गा प्रसन्न ॥\nमी श्री दुर्गा मंडळ, कसबा पेठ नवरात्रोत्सवासाठी ${formatINR(completedDonation.amount)} ची देणगी अर्पण केली आहे.\nअधिकृत पावती क्र: ${completedDonation.receiptNumber}\nदेवी दुर्गेचा कृपाप्रसाद आपल्या पाठीशी राहो! 🙏`;
+    const msg = `॥ श्री दुर्गा प्रसन्न ॥\nमी ${MANDAL_CONFIG.nameMarathi} नवरात्रोत्सवासाठी ${formatINR(completedDonation.amount)} ची देणगी अर्पण केली आहे.\nअधिकृत पावती क्र: ${completedDonation.receiptNumber}\nदेवी दुर्गेचा कृपाप्रसाद आपल्या पाठीशी राहो! 🙏`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
   };
 

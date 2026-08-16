@@ -84,7 +84,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <Phone size={16} color="#FF9800" style={{ flexShrink: 0 }} />
-                <span>{MANDAL_CONFIG.phonePrimary} / {MANDAL_CONFIG.phoneSecondary}</span>
+                <span>
+                  <a href={`tel:${MANDAL_CONFIG.phonePrimary.replace(/[^0-9+]/g, '')}`} style={{ color: '#FAF7F2', textDecoration: 'underline' }}>{MANDAL_CONFIG.phonePrimary}</a>
+                  {' / '}
+                  <a href={`tel:${MANDAL_CONFIG.phoneSecondary.replace(/[^0-9+]/g, '')}`} style={{ color: '#FAF7F2', textDecoration: 'underline' }}>{MANDAL_CONFIG.phoneSecondary}</a>
+                </span>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <Mail size={16} color="#FF9800" style={{ flexShrink: 0 }} />

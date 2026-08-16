@@ -266,7 +266,7 @@ export const MemberPortalPage: React.FC = () => {
                     <span style={{ color: '#D4AF37', fontWeight: 800 }}>ॐ</span>
                   </div>
                   <div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FAF7F2' }}>श्री दुर्गा मंडळ, कसबा पेठ</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FAF7F2' }}>{MANDAL_CONFIG.nameMarathi}</div>
                     <div style={{ fontSize: '0.68rem', color: '#FFD54F' }}>डिजिटल सभासद ओळखपत्र (Official ID)</div>
                   </div>
                 </div>

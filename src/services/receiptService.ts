@@ -98,7 +98,7 @@ export function generateDonationReceiptPDF(donation: Donation): jsPDF {
 
   doc.setFont('helvetica', 'normal');
   doc.text(`City/Village:`, 16, 104);
-  doc.text(donation.donorCity || 'Pune', 45, 104);
+  doc.text(donation.donorCity || 'Chop', 45, 104);
 
   // Amount Highlight
   doc.setFillColor(255, 243, 224); // Saffron soft tint

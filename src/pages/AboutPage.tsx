@@ -167,19 +167,34 @@ export const AboutPage: React.FC = () => {
                 <img src={item.photoUrl} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-maroon-800)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-maroon-800)', lineHeight: 1.3, marginBottom: '2px', wordBreak: 'break-word' }}>
                   {isMarathi ? item.nameMarathi : item.name}
                 </div>
                 <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-saffron-600)', marginBottom: '4px' }}>
                   {isMarathi ? item.designationMarathi : item.designationEnglish}
                 </div>
-                <a
-                  href={`tel:${item.phone.replace(/\s/g, '')}`}
-                  style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <PhoneCall size={12} color="var(--color-maroon-700)" />
-                  <span>{item.phone}</span>
-                </a>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                  <a
+                    href={`tel:${item.phone.replace(/[^0-9+]/g, '')}`}
+                    className="btn btn-primary btn-sm"
+                    style={{
+                      fontSize: '0.78rem',
+                      padding: '4px 10px',
+                      borderRadius: '16px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      textDecoration: 'none',
+                      backgroundColor: 'var(--color-maroon-700)',
+                      color: '#ffffff',
+                      boxShadow: '0 2px 4px rgba(135,28,28,0.2)'
+                    }}
+                    title="थेट कॉल करा (Direct Call)"
+                  >
+                    <PhoneCall size={12} />
+                    <span>{item.phone}</span>
+                  </a>
+                </div>
               </div>
             </div>
           ))}

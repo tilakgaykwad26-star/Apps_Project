@@ -11,7 +11,8 @@ import {
   Send,
   Sparkles,
   Share2,
-  CheckCircle
+  CheckCircle,
+  MessageCircle
 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 
@@ -48,8 +49,8 @@ export const ContactPage: React.FC = () => {
         </h1>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem' }}>
           {language === 'en'
-            ? 'Get in touch with Mandal trustees, office bearers, or visit our office in Kasba Peth, Pune.'
-            : 'मंडळाचे पदाधिकारी, विश्वस्त यांच्याशी थेट संपर्क साधा किंवा कसबा पेठ येथील कार्यालयास भेट द्या.'}
+            ? 'Get in touch with Mandal trustees, office bearers, or visit our office in Chop, Gadchiroli.'
+            : 'मंडळाचे पदाधिकारी, विश्वस्त यांच्याशी थेट संपर्क साधा किंवा चोप येथील कार्यालयास भेट द्या.'}
         </p>
       </div>
 
@@ -94,7 +95,7 @@ export const ContactPage: React.FC = () => {
             </a>
             <a href={MANDAL_CONFIG.socialMedia.instagram} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }}>
               <ExternalLink size={14} color="#E1306C" />
-              <span>Instagram: @durgamandal_pune</span>
+              <span>Instagram: @ig_aaibhawani_official</span>
             </a>
           </div>
         </div>
@@ -136,10 +137,49 @@ export const ContactPage: React.FC = () => {
                 <div style={{ fontSize: '0.78rem', color: 'var(--color-saffron-600)', fontWeight: 600, marginBottom: '4px' }}>
                   {isMarathi ? item.designationMarathi : item.designationEnglish}
                 </div>
-                <a href={`tel:${item.phone.replace(/\s/g, '')}`} style={{ fontSize: '0.8rem', color: 'var(--color-text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <PhoneCall size={12} color="var(--color-maroon-700)" />
-                  <span>{item.phone}</span>
-                </a>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                  <a
+                    href={`tel:${item.phone.replace(/[^0-9+]/g, '')}`}
+                    className="btn btn-primary btn-sm"
+                    style={{
+                      fontSize: '0.78rem',
+                      padding: '4px 10px',
+                      borderRadius: '16px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      textDecoration: 'none',
+                      backgroundColor: 'var(--color-maroon-700)',
+                      color: '#ffffff'
+                    }}
+                    title="थेट कॉल करा (Direct Call)"
+                  >
+                    <PhoneCall size={12} />
+                    <span>{item.phone}</span>
+                  </a>
+                  <a
+                    href={`https://wa.me/${item.phone.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      fontSize: '0.78rem',
+                      padding: '4px 8px',
+                      borderRadius: '16px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      textDecoration: 'none',
+                      backgroundColor: '#25D366',
+                      color: '#ffffff',
+                      borderColor: '#25D366'
+                    }}
+                    title="WhatsApp मेसेज करा"
+                  >
+                    <MessageCircle size={12} />
+                    <span>WhatsApp</span>
+                  </a>
+                </div>
               </div>
             </div>
           ))}

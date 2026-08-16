@@ -93,7 +93,7 @@ export function generateFinancialBalanceSheetPDF(
   doc.setTextColor(135, 28, 28);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('SHREE DURGA MANDAL TRUST, KASBA PETH, PUNE', 105, 18, { align: 'center' });
+  doc.text('SHREE DURGA MANDAL CHOP, GADCHIROLI', 105, 18, { align: 'center' });
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
