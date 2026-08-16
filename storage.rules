@@ -1,0 +1,41 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isLessThan5MB() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // Public Assets & Gallery Images
+    match /gallery/{albumId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && isLessThan5MB();
+    }
+
+    // Member Profile Photos
+    match /members/{memberId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && isLessThan5MB();
+    }
+
+    // Notice Attachments (PDF / Documents)
+    match /notices/{noticeId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Sponsor Logos
+    match /sponsors/{sponsorId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && isLessThan5MB();
+    }
+  }
+}

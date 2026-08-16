@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="48" fill="#871C1C" stroke="#D4AF37" stroke-width="4"/>
+  <circle cx="50" cy="50" r="40" fill="none" stroke="#FF9800" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <!-- Trishul & Diya motif -->
+  <path d="M50 18 L50 78 M42 26 C42 42 50 48 50 48 C50 48 58 42 58 26 M50 18 L46 25 L54 25 Z" stroke="#D4AF37" stroke-width="3.5" fill="#D4AF37" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Decorative flames -->
+  <path d="M50 12 Q53 16 50 20 Q47 16 50 12 Z" fill="#FF9800"/>
+  <!-- Base pedestal -->
+  <rect x="36" y="76" width="28" height="6" rx="2" fill="#D4AF37"/>
+</svg>
