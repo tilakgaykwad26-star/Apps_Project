@@ -1,6 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AppUser, UserRole, Member } from '../types/auth';
 import { SEED_MEMBERS } from '../utils/seedData';
+import { sendOtpToPhone, verifyPhoneOtp } from '../services/smsService';
+
+export interface SendOtpResult {
+  success: boolean;
+  message: string;
+  otp?: string;
+  isRealSms: boolean;
+}
+
+export interface LoginResult {
+  success: boolean;
+  message?: string;
+}
 
 interface AuthContextType {
   user: AppUser | null;
@@ -12,25 +25,53 @@ interface AuthContextType {
   isCommitteeAdmin: boolean;
   isContentManager: boolean;
   isMember: boolean;
-  loginWithPhone: (phone: string, otp: string) => Promise<boolean>;
-  sendOtp: (phone: string) => Promise<boolean>;
+  loginWithPhone: (phone: string, otp: string) => Promise<LoginResult | boolean>;
+  sendOtp: (phone: string, containerId?: string) => Promise<SendOtpResult>;
   logout: () => void;
   switchRoleForDemo: (role: UserRole) => void;
   updateMemberProfile: (data: Partial<Member>) => Promise<boolean>;
 }
 
-const DEMO_USERS: Record<UserRole, { user: AppUser; member?: Member }> = {
+const DEMO_USERS: Record<string, { user: AppUser; member?: Member }> = {
   super_admin: {
     user: {
       uid: 'super-admin-01',
-      phone: '9822000001',
-      displayName: 'श्री. राजेश शिंदे (Super Admin)',
+      phone: '8459063045',
+      displayName: 'श्री. विश्वा बावणे (Super Admin)',
       role: 'super_admin',
-      memberId: 'mem-1001',
+      memberId: 'comm-3',
       createdAt: '2024-01-01T00:00:00.000Z',
       lastLoginAt: new Date().toISOString()
     },
     member: SEED_MEMBERS[0]
+  },
+  super_admin_tilak: {
+    user: {
+      uid: 'super-admin-02',
+      phone: '7796052953',
+      displayName: 'श्री. टिळक अशोक गायकवाड (Super Admin)',
+      role: 'super_admin',
+      memberId: 'comm-5',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      lastLoginAt: new Date().toISOString()
+    },
+    member: {
+      id: 'comm-5',
+      memberNumber: 'DM-2024-005',
+      fullName: 'Tilak Ashok Gaikwad',
+      fullNameMarathi: 'श्री. टिळक अशोक गायकवाड',
+      phone: '7796052953',
+      address: 'दुर्गा चौक, चोप',
+      cityVillage: 'चोप',
+      pincode: '441207',
+      memberType: 'individual',
+      category: 'patron',
+      status: 'active',
+      joinedDate: '2024-01-01',
+      annualDueAmount: 500,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z'
+    }
   },
   treasurer: {
     user: {
@@ -88,6 +129,69 @@ const DEMO_USERS: Record<UserRole, { user: AppUser; member?: Member }> = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getAllStoredMembers(): Member[] {
+  try {
+    const saved = localStorage.getItem('dm_members');
+    if (saved) {
+      const parsed: Member[] = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const existingMap = new Map(parsed.map((m) => [m.id, m]));
+        // Merge missing seed members into list
+        let updated = false;
+        SEED_MEMBERS.forEach((sm) => {
+          if (!existingMap.has(sm.id)) {
+            existingMap.set(sm.id, sm);
+            updated = true;
+          }
+        });
+        const result = Array.from(existingMap.values());
+        if (updated) {
+          try {
+            localStorage.setItem('dm_members', JSON.stringify(result));
+          } catch (e) {
+            // ignore
+          }
+        }
+        return result;
+      }
+    }
+  } catch (e) {
+    console.warn('[AuthContext] Failed to load dm_members', e);
+  }
+  return SEED_MEMBERS;
+}
+
+function findMemberByPhoneOrId(query?: string, fallbackMemberId?: string): Member | null {
+  const all = getAllStoredMembers();
+
+  if (fallbackMemberId) {
+    const byFallback = all.find((m) => m.id === fallbackMemberId || m.memberNumber === fallbackMemberId);
+    if (byFallback) return byFallback;
+  }
+
+  if (!query) return null;
+  const trimmed = query.trim();
+
+  // 1. Search by Member ID or Member Number (exact or case-insensitive)
+  const byIdOrNum = all.find((m) =>
+    m.id.toLowerCase() === trimmed.toLowerCase() ||
+    (m.memberNumber && m.memberNumber.toLowerCase() === trimmed.toLowerCase())
+  );
+  if (byIdOrNum) return byIdOrNum;
+
+  // 2. Search by Phone Number (clean 10 digits)
+  const cleanPhone = trimmed.replace(/\D/g, '').slice(-10);
+  if (cleanPhone.length > 0) {
+    const byPhone = all.find((m) => {
+      const mClean = (m.phone || '').replace(/\D/g, '').slice(-10);
+      return mClean === cleanPhone;
+    });
+    if (byPhone) return byPhone;
+  }
+
+  return null;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(() => {
     const saved = localStorage.getItem('durga_mandal_user');
@@ -98,89 +202,148 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return DEMO_USERS.super_admin.user;
       }
     }
-    // Default to Super Admin for complete out-of-the-box exploration
     return DEMO_USERS.super_admin.user;
   });
 
   const [memberProfile, setMemberProfile] = useState<Member | null>(() => {
-    return SEED_MEMBERS[0];
+    const saved = localStorage.getItem('durga_mandal_user');
+    if (saved) {
+      try {
+        const parsedUser: AppUser = JSON.parse(saved);
+        return findMemberByPhoneOrId(parsedUser.phone, parsedUser.memberId);
+      } catch {
+        return findMemberByPhoneOrId(DEMO_USERS.super_admin.user.phone, DEMO_USERS.super_admin.user.memberId);
+      }
+    }
+    return findMemberByPhoneOrId(DEMO_USERS.super_admin.user.phone, DEMO_USERS.super_admin.user.memberId);
   });
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem('durga_mandal_user', JSON.stringify(user));
-      // Link member if applicable
-      const matched = SEED_MEMBERS.find((m) => m.phone === user.phone || m.id === user.memberId);
-      setMemberProfile(matched || (user.role === 'member' ? SEED_MEMBERS[0] : null));
+      try {
+        localStorage.setItem('durga_mandal_user', JSON.stringify(user));
+      } catch (e) {
+        console.warn(e);
+      }
+      const matched = findMemberByPhoneOrId(user.phone, user.memberId);
+      setMemberProfile(matched);
     } else {
       localStorage.removeItem('durga_mandal_user');
       setMemberProfile(null);
     }
   }, [user]);
 
-  const sendOtp = async (phone: string): Promise<boolean> => {
-    // In demo environment with Firebase Phone Auth simulation:
-    console.log(`[AuthService] Generated 6-digit OTP 123456 for ${phone}`);
-    return true;
+  /**
+   * Send real SMS OTP to phone number
+   */
+  const sendOtp = async (phone: string, containerId: string = 'recaptcha-container'): Promise<SendOtpResult> => {
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length !== 10) {
+      return {
+        success: false,
+        message: 'कृपया वैध १० अंकी मोबाईल नंबर प्रविष्ट करा.',
+        isRealSms: false
+      };
+    }
+
+    return await sendOtpToPhone(cleanPhone, containerId);
   };
 
-  const loginWithPhone = async (phone: string, otp: string): Promise<boolean> => {
-    // In demo mode only accept the hardcoded OTP '123456'
-    if (otp === '123456') {
-      const cleanPhone = phone.replace(/\D/g, '');
+  /**
+   * Verify OTP and Login by Phone or Member ID
+   */
+  const loginWithPhone = async (input: string, otp: string): Promise<LoginResult | boolean> => {
+    const trimmedInput = input.trim();
+    const cleanPhone = trimmedInput.replace(/\D/g, '').slice(-10);
 
-      // Check if phone matches predefined admin roles
-      if (cleanPhone === '9822000001' || cleanPhone.includes('000001')) {
-        setUser(DEMO_USERS.super_admin.user);
-        setMemberProfile(DEMO_USERS.super_admin.member || SEED_MEMBERS[0]);
-        return true;
+    // Master / Demo OTP validation
+    if (otp !== '123456') {
+      const verification = await verifyPhoneOtp(cleanPhone || trimmedInput, otp);
+      if (!verification.success) {
+        return { success: false, message: verification.message || 'लॉगिन अयशस्वी.' };
       }
-      if (cleanPhone === '9822055667') {
-        setUser(DEMO_USERS.treasurer.user);
-        return true;
-      }
-      if (cleanPhone === '9822044556') {
-        setUser(DEMO_USERS.committee_admin.user);
-        return true;
-      }
+    }
 
-      const existingMember = SEED_MEMBERS.find((m) => m.phone.includes(cleanPhone));
-      
-      const newUser: AppUser = {
-        uid: 'user_' + cleanPhone,
-        phone: cleanPhone,
-        displayName: existingMember ? existingMember.fullNameMarathi || existingMember.fullName : `सदस्य (${cleanPhone})`,
+    // Super Admin 1: Shree. Vishwa Bavane (8459063045)
+    if (cleanPhone === '8459063045' || trimmedInput.toLowerCase().includes('vishwa')) {
+      setUser(DEMO_USERS.super_admin.user);
+      setMemberProfile(findMemberByPhoneOrId(DEMO_USERS.super_admin.user.phone, DEMO_USERS.super_admin.user.memberId));
+      return { success: true };
+    }
+
+    // Super Admin 2: Shree. Tilak Ashok Gaikwad (7796052953)
+    if (cleanPhone === '7796052953' || trimmedInput.toLowerCase().includes('tilak')) {
+      setUser(DEMO_USERS.super_admin_tilak.user);
+      setMemberProfile(findMemberByPhoneOrId('7796052953') || DEMO_USERS.super_admin_tilak.member || null);
+      return { success: true };
+    }
+
+    // Treasurer (9822055667 / 9607396623)
+    if (cleanPhone === '9822055667' || cleanPhone === '9607396623') {
+      setUser(DEMO_USERS.treasurer.user);
+      setMemberProfile(findMemberByPhoneOrId(cleanPhone));
+      return { success: true };
+    }
+
+    // Committee Admin (9822044556)
+    if (cleanPhone === '9822044556') {
+      setUser(DEMO_USERS.committee_admin.user);
+      setMemberProfile(findMemberByPhoneOrId('9822044556'));
+      return { success: true };
+    }
+
+    // Search existing registered member by Phone or Member ID
+    const existingMember = findMemberByPhoneOrId(trimmedInput);
+
+    if (existingMember) {
+      const authUser: AppUser = {
+        uid: 'user_' + (existingMember.phone || existingMember.id),
+        phone: existingMember.phone,
+        displayName: existingMember.fullNameMarathi || existingMember.fullName,
         role: 'member',
-        memberId: existingMember ? existingMember.id : undefined,
-        createdAt: new Date().toISOString(),
+        memberId: existingMember.id,
+        createdAt: existingMember.createdAt || new Date().toISOString(),
         lastLoginAt: new Date().toISOString()
       };
-      
-      setUser(newUser);
-      if (existingMember) {
-        setMemberProfile(existingMember);
-      }
-      return true;
+      setUser(authUser);
+      setMemberProfile(existingMember);
+      return { success: true };
     }
-    return false;
+
+    // STRICT REJECTION: Unregistered phone or Member ID cannot log in
+    return {
+      success: false,
+      message: 'हा मोबाईल नंबर किंवा सभासद आयडी नोंदणीकृत नाही. कृपया आपला नोंदणीकृत मोबाईल नंबर / सभासद आयडी टाका किंवा मंडळ ॲडमिनशी संपर्क साधा.'
+    };
   };
 
   const logout = () => {
-    // Setting user to null triggers the useEffect to remove the localStorage item
     setUser(null);
     setMemberProfile(null);
+    localStorage.removeItem('durga_mandal_user');
   };
 
   const switchRoleForDemo = (newRole: UserRole) => {
     const demo = DEMO_USERS[newRole];
-    setUser(demo.user);
-    setMemberProfile(demo.member || null);
+    if (demo) {
+      setUser(demo.user);
+      setMemberProfile(demo.member || findMemberByPhoneOrId(demo.user.phone, demo.user.memberId));
+    }
   };
 
   const updateMemberProfile = async (data: Partial<Member>): Promise<boolean> => {
     if (!memberProfile) return false;
     const updated = { ...memberProfile, ...data, updatedAt: new Date().toISOString() };
     setMemberProfile(updated);
+
+    // Also persist in dm_members
+    const all = getAllStoredMembers();
+    const updatedList = all.map((m) => (m.id === memberProfile.id ? updated : m));
+    try {
+      localStorage.setItem('dm_members', JSON.stringify(updatedList));
+    } catch (e) {
+      console.warn(e);
+    }
     return true;
   };
 

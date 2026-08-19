@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { useMandal } from '../context/MandalContext';
+import { useMandal, DEFAULT_HERO_SLIDES } from '../context/MandalContext';
 import { MANDAL_CONFIG } from '../config/constants';
 import { formatMarathiDate, formatIndianDate, toMarathiDigits } from '../utils/dateUtils';
 import { formatINR } from '../utils/currencyUtils';
@@ -15,6 +15,7 @@ import {
   PhoneCall,
   Info,
   ChevronRight,
+  ChevronLeft,
   MapPin,
   Clock,
   ArrowRight,
@@ -30,11 +31,49 @@ interface HomePageProps {
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenDonateModal }) => {
   const { language, t, isMarathi } = useLanguage();
-  const { events, notices, albums, committee, activeSponsors } = useMandal();
+  const { events, notices, albums, committee, activeSponsors, heroSlides, festivalConfig } = useMandal();
 
   const upcomingEvents = events.filter((e) => e.status === 'upcoming').slice(0, 2);
   const urgentNotices = notices.filter((n) => n.isPublished && (n.priority === 'urgent' || n.priority === 'important')).slice(0, 3);
   const coreCommittee = committee.filter((c) => c.isCoreMember).slice(0, 4);
+
+  // Hero Auto-Sliding Banner Carousel
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+
+  // Dynamic Auto slide interval from Festival Settings (0 = Off/Disabled, Default 5s)
+  const isAutoScrollDisabled = festivalConfig?.sliderIntervalSeconds === 0;
+  const slideIntervalMs = (festivalConfig?.sliderIntervalSeconds && festivalConfig.sliderIntervalSeconds > 0)
+    ? festivalConfig.sliderIntervalSeconds * 1000
+    : 5000;
+
+  useEffect(() => {
+    if (isAutoScrollDisabled || !heroSlides || heroSlides.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % heroSlides.length);
+    }, slideIntervalMs);
+    return () => clearInterval(timer);
+  }, [isAutoScrollDisabled, heroSlides?.length, slideIntervalMs]);
+
+  const prevSlide = () => {
+    if (!heroSlides || heroSlides.length === 0) return;
+    setCurrentSlideIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
+  };
+
+  const nextSlide = () => {
+    if (!heroSlides || heroSlides.length === 0) return;
+    setCurrentSlideIndex((prev) => (prev + 1) % heroSlides.length);
+  };
+
+  const safeIndex = (currentSlideIndex >= 0 && currentSlideIndex < (heroSlides?.length || 0)) ? currentSlideIndex : 0;
+  const currentSlide = (heroSlides && heroSlides[safeIndex]) ? heroSlides[safeIndex] : (heroSlides?.[0] || DEFAULT_HERO_SLIDES[0]);
+
+  const handleActionClick = (actionKey: string) => {
+    if (actionKey === 'annadaan' && onOpenDonateModal) {
+      onOpenDonateModal(500, 'annadaan');
+    } else {
+      onNavigate(actionKey);
+    }
+  };
 
   const quickActionsList = [
     { key: 'about', label: t.quickActions.about, icon: Info, color: '#871C1C' },
@@ -48,105 +87,236 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenDonateModa
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2xl)' }}>
-      {/* 1. Hero Festival Banner */}
-      <section style={{
-        background: 'radial-gradient(circle at top right, #6F1616 0%, #871C1C 45%, #4A0808 100%)',
-        color: '#FFFFFF',
-        padding: 'var(--space-2xl) 0',
-        position: 'relative',
-        overflow: 'hidden',
-        boxShadow: 'var(--shadow-md)'
-      }}>
-        {/* Subtle decorative motif background */}
-        <div style={{
-          position: 'absolute',
-          right: '-5%',
-          top: '-10%',
-          opacity: 0.08,
-          pointerEvents: 'none'
-        }}>
-          <svg width="450" height="450" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="46" stroke="#D4AF37" strokeWidth="4" fill="none" />
-            <path d="M50 10 L50 90 M10 50 L90 50 M22 22 L78 78 M22 78 L78 22" stroke="#D4AF37" strokeWidth="2" />
-          </svg>
-        </div>
+      {/* 1. Hero Auto-Sliding Festival Banner Carousel */}
+      <section
+        style={{
+          background: currentSlide.bannerMode === 'full_photo' && currentSlide.imageUrl
+            ? '#0D0202'
+            : (currentSlide.imageUrl
+              ? `linear-gradient(to right, rgba(15, 2, 2, 0.90) 0%, rgba(30, 4, 4, 0.78) 50%, rgba(15, 2, 2, 0.60) 100%), url("${currentSlide.imageUrl}") center center / cover no-repeat`
+              : currentSlide.gradient),
+          color: '#FFFFFF',
+          padding: currentSlide.bannerMode === 'full_photo' && currentSlide.imageUrl ? '0' : 'var(--space-2xl) 0 calc(var(--space-2xl) + 16px) 0',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow-md)',
+          transition: 'background 0.8s ease-in-out',
+          minHeight: currentSlide.bannerMode === 'full_photo' && currentSlide.imageUrl ? '320px' : '440px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        {/* Previous Slide Arrow */}
+        <button
+          type="button"
+          onClick={prevSlide}
+          className="hero-nav-arrow hero-nav-prev"
+          title="मागील स्लाईड (Previous Slide)"
+          aria-label="Previous Slide"
+        >
+          <ChevronLeft size={24} />
+        </button>
 
-        <div className="container" style={{ position: 'relative', zIndex: 2 }}>
-          <div style={{ maxWidth: '780px' }}>
+        {/* Next Slide Arrow */}
+        <button
+          type="button"
+          onClick={nextSlide}
+          className="hero-nav-arrow hero-nav-next"
+          title="पुढील स्लाईड (Next Slide)"
+          aria-label="Next Slide"
+        >
+          <ChevronRight size={24} />
+        </button>
+
+        {/* Subtle decorative motif background (shown on standard mode) */}
+        {currentSlide.bannerMode !== 'full_photo' && (
+          <div style={{
+            position: 'absolute',
+            right: '-5%',
+            top: '-10%',
+            opacity: 0.08,
+            pointerEvents: 'none'
+          }}>
+            <svg width="450" height="450" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" stroke="#D4AF37" strokeWidth="4" fill="none" />
+              <path d="M50 10 L50 90 M10 50 L90 50 M22 22 L78 78 M22 78 L78 22" stroke="#D4AF37" strokeWidth="2" />
+            </svg>
+          </div>
+        )}
+
+        {/* MODE A: PLAIN FULL PHOTO BANNER (केवळ पूर्ण फोटो बॅनर) */}
+        {currentSlide.bannerMode === 'full_photo' && currentSlide.imageUrl ? (
+          <div style={{ width: '100%', position: 'relative' }}>
+            <img
+              src={currentSlide.imageUrl}
+              alt={currentSlide.titleMarathi || 'Durga Mandal Festival Banner'}
+              style={{
+                width: '100%',
+                maxHeight: '560px',
+                minHeight: '280px',
+                objectFit: 'cover',
+                display: 'block',
+                cursor: 'default'
+              }}
+            />
+            {/* Overlay Bottom Dots & Badge */}
             <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              backgroundColor: 'rgba(212, 175, 55, 0.22)',
-              border: '1px solid var(--color-gold-500)',
-              borderRadius: 'var(--radius-full)',
-              padding: '4px 14px',
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              color: '#FBF6DF',
-              marginBottom: 'var(--space-md)'
-            }}>
-              <Sparkles size={16} color="#D4AF37" />
-              <span>{MANDAL_CONFIG.currentFestival.greeting}</span>
-            </div>
-
-            <h1 style={{
-              color: '#FFFFFF',
-              fontSize: 'clamp(2rem, 5vw, 3.2rem)',
-              fontFamily: 'var(--font-serif)',
-              lineHeight: 1.2,
-              marginBottom: 'var(--space-sm)',
-              textShadow: '0 2px 8px rgba(0,0,0,0.3)'
-            }}>
-              {MANDAL_CONFIG.currentFestival.titleMarathi}
-            </h1>
-
-            <div style={{
-              fontSize: '1.15rem',
-              color: '#FFE0B2',
-              fontWeight: 600,
-              marginBottom: 'var(--space-lg)',
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)',
+              padding: '16px 20px',
               display: 'flex',
+              justifyContent: 'center',
               alignItems: 'center',
-              gap: '10px'
+              gap: '8px'
             }}>
-              <Calendar size={20} color="#FF9800" />
-              <span>{MANDAL_CONFIG.currentFestival.datesMarathi}</span>
-            </div>
-
-            <p style={{
-              fontSize: '1rem',
-              color: '#F0E6D8',
-              lineHeight: 1.6,
-              marginBottom: 'var(--space-xl)',
-              maxWidth: '650px'
-            }}>
-              {language === 'en'
-                ? 'A celebration of devotion, a pride in our culture, and a new path of service — let’s come together and celebrate Navratri'
-                : '*भक्तीचा उत्सव, संस्कृतीचा अभिमान आणि सेवाभावाची नवी दिशा — चला, नवरात्रोत्सव एकत्र साजरा करूया!*'}
-            </p>
-
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
-              <button
-                onClick={() => onNavigate('donate')}
-                className="btn btn-saffron btn-lg"
-                style={{ fontSize: '1.05rem', fontWeight: 700, padding: '0.8rem 1.8rem' }}
-              >
-                <HeartHandshake size={20} />
-                <span>{t.home.donateNowBtn}</span>
-              </button>
-
-              <button
-                onClick={() => onNavigate('events')}
-                className="btn btn-outline-gold btn-lg"
-                style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#FFFFFF', borderColor: '#D4AF37' }}
-              >
-                <Calendar size={20} />
-                <span>{t.home.viewAllEvents}</span>
-              </button>
+              {heroSlides.map((slide, idx) => {
+                const isActive = idx === currentSlideIndex;
+                return (
+                  <button
+                    key={slide.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentSlideIndex(idx);
+                    }}
+                    style={{
+                      width: isActive ? '32px' : '10px',
+                      height: '10px',
+                      borderRadius: '5px',
+                      backgroundColor: isActive ? 'var(--color-gold-500)' : 'rgba(255, 255, 255, 0.45)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      padding: 0
+                    }}
+                    title={`स्लाईड ${idx + 1}`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                );
+              })}
+              <span style={{ fontSize: '0.75rem', color: '#FFE0B2', marginLeft: '6px', fontWeight: 600 }}>
+                {toMarathiDigits(currentSlideIndex + 1)} / {toMarathiDigits(heroSlides.length)}
+              </span>
             </div>
           </div>
-        </div>
+        ) : (
+          /* MODE B: STANDARD TEXT + BACKGROUND BANNER */
+          <div className="container" style={{ position: 'relative', zIndex: 2, width: '100%' }}>
+            <div key={currentSlide.id} className="hero-slide-enter" style={{ maxWidth: '820px' }}>
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                backgroundColor: 'rgba(212, 175, 55, 0.25)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid var(--color-gold-500)',
+                borderRadius: 'var(--radius-full)',
+                padding: '4px 14px',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                color: '#FBF6DF',
+                marginBottom: 'var(--space-md)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+              }}>
+                <Sparkles size={16} color={currentSlide.accentColor} />
+                <span>{currentSlide.badge}</span>
+              </div>
+
+              <h1 style={{
+                color: '#FFFFFF',
+                fontSize: 'clamp(2rem, 5vw, 3.2rem)',
+                fontFamily: 'var(--font-serif)',
+                lineHeight: 1.2,
+                marginBottom: 'var(--space-sm)',
+                textShadow: '0 2px 10px rgba(0,0,0,0.6)'
+              }}>
+                {isMarathi ? currentSlide.titleMarathi : currentSlide.titleEnglish}
+              </h1>
+
+              <div style={{
+                fontSize: '1.15rem',
+                color: '#FFE0B2',
+                fontWeight: 600,
+                marginBottom: 'var(--space-lg)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                textShadow: '0 1px 4px rgba(0,0,0,0.5)'
+              }}>
+                <Calendar size={20} color={currentSlide.accentColor} />
+                <span>{isMarathi ? currentSlide.highlightMarathi : currentSlide.highlightEnglish}</span>
+              </div>
+
+              <p style={{
+                fontSize: '1.02rem',
+                color: '#FBF4EB',
+                lineHeight: 1.6,
+                marginBottom: 'var(--space-xl)',
+                maxWidth: '680px',
+                textShadow: '0 1px 4px rgba(0,0,0,0.6)'
+              }}>
+                {isMarathi ? currentSlide.descMarathi : currentSlide.descEnglish}
+              </p>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+                <button
+                  onClick={() => handleActionClick(currentSlide.btn1ActionKey)}
+                  className="btn btn-saffron btn-lg"
+                  style={{ fontSize: '1.05rem', fontWeight: 700, padding: '0.8rem 1.8rem', gap: '8px', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }}
+                >
+                  <HeartHandshake size={20} />
+                  <span>{currentSlide.btn1TextMarathi}</span>
+                </button>
+
+                <button
+                  onClick={() => handleActionClick(currentSlide.btn2ActionKey)}
+                  className="btn btn-outline-gold btn-lg"
+                  style={{ backgroundColor: 'rgba(0, 0, 0, 0.35)', backdropFilter: 'blur(8px)', color: '#FFFFFF', borderColor: '#D4AF37', gap: '8px', boxShadow: '0 4px 14px rgba(0,0,0,0.3)' }}
+                >
+                  <Calendar size={20} />
+                  <span>{currentSlide.btn2TextMarathi}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Pagination Indicators / Dots */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginTop: 'var(--space-xl)',
+              paddingTop: 'var(--space-sm)'
+            }}>
+              {heroSlides.map((slide, idx) => {
+                const isActive = idx === currentSlideIndex;
+                return (
+                  <button
+                    key={slide.id}
+                    onClick={() => setCurrentSlideIndex(idx)}
+                    style={{
+                      width: isActive ? '32px' : '10px',
+                      height: '10px',
+                      borderRadius: '5px',
+                      backgroundColor: isActive ? 'var(--color-gold-500)' : 'rgba(255, 255, 255, 0.35)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      padding: 0
+                    }}
+                    title={`स्लाईड ${idx + 1}`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                );
+              })}
+              <span style={{ fontSize: '0.75rem', color: '#FFE0B2', marginLeft: '6px', fontWeight: 600 }}>
+                {toMarathiDigits(currentSlideIndex + 1)} / {toMarathiDigits(heroSlides.length)}
+              </span>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 2. Notice Ticker / Urgent Notices */}

@@ -32,12 +32,22 @@ export const ContactPage: React.FC = () => {
       showError('कृपया सर्व आवश्यक माहिती प्रविष्ट करा.');
       return;
     }
+
+    const secretaryPhone = MANDAL_CONFIG.phoneSecondary.replace(/[^0-9]/g, '');
+    const cleanPhone = secretaryPhone.startsWith('91') ? secretaryPhone : `91${secretaryPhone}`;
+
+    const formattedMessage = `॥ श्री दुर्गा मंडळ चोप — नवीन संदेश/विचारणा ॥\n\n👤 नाव: ${senderName.trim()}\n📱 मोबाईल: ${senderPhone.trim()}\n💬 संदेश:\n${messageText.trim()}\n\n— दुर्गा मंडळ अधिकृत वेब पोर्टल`;
+
+    // Open Secretary WhatsApp with pre-filled message
+    const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(formattedMessage)}`;
+    window.open(waUrl, '_blank');
+
     setIsSent(true);
-    showSuccess('आपला संदेश मंडळाच्या सचिवालयाकडे पाठवला गेला आहे!');
+    showSuccess('आपला संदेश सचिवांच्या WhatsApp वर पाठवण्यासाठी उघडण्यात आला आहे!');
     setSenderName('');
     setSenderPhone('');
     setMessageText('');
-    setTimeout(() => setIsSent(false), 4000);
+    setTimeout(() => setIsSent(false), 5000);
   };
 
   return (

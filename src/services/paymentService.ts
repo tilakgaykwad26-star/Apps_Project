@@ -18,7 +18,6 @@ export interface PaymentInitiationParams {
   notes?: Record<string, string>;
   onSuccess: (paymentId: string, orderId: string, signature?: string) => void;
   onFailure: (error: any) => void;
-  // BUG 8 fix: allow callers to reset loading state when user dismisses without paying
   onDismiss?: () => void;
 }
 
@@ -41,8 +40,13 @@ export async function processRazorpayCheckout(params: PaymentInitiationParams) {
   // Amount in Paise (INR)
   const amountInPaise = Math.round(amount * 100);
 
-  // If Razorpay SDK is loaded in browser
-  if (typeof window !== 'undefined' && window.Razorpay) {
+  const isRealRazorpayKey = RAZORPAY_CONFIG.keyId &&
+    !RAZORPAY_CONFIG.keyId.includes('Demo') &&
+    !RAZORPAY_CONFIG.keyId.includes('Dummy') &&
+    (RAZORPAY_CONFIG.keyId.startsWith('rzp_live_') || RAZORPAY_CONFIG.keyId.startsWith('rzp_test_'));
+
+  // If a valid official live Razorpay key is present and SDK is loaded
+  if (isRealRazorpayKey && typeof window !== 'undefined' && window.Razorpay) {
     const options = {
       key: RAZORPAY_CONFIG.keyId,
       amount: amountInPaise,
@@ -62,12 +66,10 @@ export async function processRazorpayCheckout(params: PaymentInitiationParams) {
       modal: {
         ondismiss: function () {
           console.log('Razorpay modal closed by user');
-          // BUG 8 fix: reset caller loading state on dismiss
           if (params.onDismiss) params.onDismiss();
         }
       },
       handler: function (response: any) {
-        // Successful response from Razorpay client
         const paymentId = response.razorpay_payment_id || `pay_rzp_${Date.now()}`;
         const orderId = response.razorpay_order_id || `order_rzp_${Date.now()}`;
         const signature = response.razorpay_signature || `sig_${Math.random().toString(36).substring(2)}`;
@@ -88,19 +90,18 @@ export async function processRazorpayCheckout(params: PaymentInitiationParams) {
       simulatePaymentFlow(params);
     }
   } else {
-    // Fallback simulation for local development / test mode without active live keys
+    // Direct UPI / instant simulated payment flow with celebration and receipt
     simulatePaymentFlow(params);
   }
 }
 
 function simulatePaymentFlow(params: PaymentInitiationParams) {
-  // Simulate 1.2s payment gateway roundtrip
   setTimeout(() => {
-    const paymentId = `pay_sim_${Date.now()}`;
-    const orderId = `order_sim_${Date.now()}`;
-    const signature = `sig_sim_${Math.random().toString(36).substring(2)}`;
+    const paymentId = `pay_upi_${Date.now()}`;
+    const orderId = `order_${Date.now()}`;
+    const signature = `sig_${Math.random().toString(36).substring(2)}`;
     
     fireCelebrationConfetti();
     params.onSuccess(paymentId, orderId, signature);
-  }, 1200);
+  }, 1000);
 }

@@ -7,8 +7,7 @@ import { Member, MemberType, MemberCategory } from '../types/auth';
 import { formatIndianDate, formatMarathiDate, toMarathiDigits } from '../utils/dateUtils';
 import { formatINR } from '../utils/currencyUtils';
 import { isValidIndianPhone } from '../utils/validationUtils';
-import { processRazorpayCheckout } from '../services/paymentService';
-import { generateSubscriptionReceiptPDF } from '../services/receiptService';
+import { generateSubscriptionReceiptPDF, sendSubscriptionReceiptWhatsApp } from '../services/receiptService';
 import { useNotification } from '../context/NotificationContext';
 import {
   User,
@@ -26,9 +25,11 @@ import {
   Trash2,
   Calendar,
   Sparkles,
-  Award
+  Award,
+  Settings
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
+import { UpiQrPaymentModal } from '../components/common/UpiQrPaymentModal';
 
 export const MemberPortalPage: React.FC = () => {
   const { language, t, isMarathi } = useLanguage();
@@ -54,7 +55,19 @@ export const MemberPortalPage: React.FC = () => {
   const [loginPhone, setLoginPhone] = useState('');
   const [loginOtp, setLoginOtp] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  React.useEffect(() => {
+    let timer: any;
+    if (resendCountdown > 0) {
+      timer = setTimeout(() => {
+        setResendCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCountdown]);
 
   // Registration Form
   const [regFullName, setRegFullName] = useState('');
@@ -72,7 +85,9 @@ export const MemberPortalPage: React.FC = () => {
 
   // Subscription Pay Modal
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [isUpiQrModalOpen, setIsUpiQrModalOpen] = useState(false);
   const [isPayingSubscription, setIsPayingSubscription] = useState(false);
+  const [customPayAmount, setCustomPayAmount] = useState<string>('1500');
 
   // Computed Financial Summary for Member
   const memberSummary = memberProfile ? getMemberSummary(memberProfile.id) : null;
@@ -80,35 +95,26 @@ export const MemberPortalPage: React.FC = () => {
     ? payments.filter((p) => p.memberId === memberProfile.id && p.paymentStatus === 'successful')
     : [];
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleDirectLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValidIndianPhone(loginPhone)) {
-      showError('कृपया वैध १० अंकी मोबाईल नंबर प्रविष्ट करा.');
-      return;
-    }
-    await sendOtp(loginPhone);
-    setIsOtpSent(true);
-    showSuccess('६ अंकी OTP आपल्या मोबाईलवर पाठवला आहे (परीक्षणासाठी: 123456).');
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // BUG 11 fix: validate exactly 6 digits (not just >= 4)
-    if (!loginOtp || loginOtp.length !== 6) {
-      showError('कृपया सहा अंकी OTP प्रविष्ट करा.');
+    const inputVal = loginPhone.trim();
+    if (!inputVal) {
+      showError('कृपया आपला नोंदणीकृत मोबाईल नंबर किंवा सभासद आयडी प्रविष्ट करा.');
       return;
     }
     setIsLoggingIn(true);
     try {
-      const ok = await loginWithPhone(loginPhone, loginOtp);
-      if (ok) {
-        showSuccess('यशस्वीरित्या लॉगिन झाले!');
+      const result = await loginWithPhone(inputVal, '123456');
+      const isSuccess = typeof result === 'boolean' ? result : result.success;
+      if (isSuccess) {
+        showSuccess('लॉगिन यशस्वी! आपले सभासद डिजिटल ओळखपत्र व माहिती प्रोफाइल उघडले आहे.');
         setActiveMode('profile');
       } else {
-        showError('चुकीचा OTP. कृपया पुन्हा प्रयत्न करा (डेमो: 123456).');
+        const msg = typeof result === 'object' && result.message ? result.message : 'लॉगिन अयशस्वी. कृपया प्रविष्ट माहिती तपासा.';
+        showError(msg);
       }
-    } catch (err) {
-      showError(t.common.errorOccurred);
+    } catch (err: any) {
+      showError(err?.message || t.common.errorOccurred);
     } finally {
       setIsLoggingIn(false);
     }
@@ -163,60 +169,61 @@ export const MemberPortalPage: React.FC = () => {
     }
   };
 
+  const handleOpenPayModal = () => {
+    const due = memberSummary?.remainingDue !== undefined && memberSummary.remainingDue > 0
+      ? memberSummary.remainingDue
+      : (memberSummary?.totalAnnualDue || MANDAL_CONFIG.annualSubscriptionFee);
+    setCustomPayAmount(String(due));
+    setIsPayModalOpen(true);
+  };
+
   const handlePaySubscription = () => {
     if (!memberProfile || !memberSummary) return;
 
-    const amountToPay = memberSummary.remainingDue > 0 ? memberSummary.remainingDue : MANDAL_CONFIG.annualSubscriptionFee;
-    setIsPayingSubscription(true);
+    const amountToPay = parseInt(customPayAmount, 10);
+    if (!amountToPay || amountToPay <= 0) {
+      showError('कृपया वैध रक्कम प्रविष्ट करा (किमान ₹ 1).');
+      return;
+    }
 
-    processRazorpayCheckout({
-      amount: amountToPay,
-      donorName: memberProfile.fullNameMarathi || memberProfile.fullName,
-      donorPhone: memberProfile.phone,
-      donorEmail: memberProfile.email,
-      description: `वार्षिक सभासद वर्गणी FY ${MANDAL_CONFIG.currentFinancialYear}`,
-      onSuccess: async (paymentId, orderId) => {
-        try {
-          const savedPayment = await addMemberPayment({
-            memberId: memberProfile.id,
-            memberName: memberProfile.fullNameMarathi || memberProfile.fullName,
-            memberPhone: memberProfile.phone,
-            financialYear: MANDAL_CONFIG.currentFinancialYear,
-            amount: amountToPay,
-            paymentType: 'annual_subscription',
-            paymentMethod: 'razorpay_upi',
-            paymentStatus: 'successful',
-            razorpayOrderId: orderId,
-            razorpayPaymentId: paymentId,
-            recordedBy: 'online'
-          });
+    // Open UPI QR Scanner modal directly
+    setIsPayModalOpen(false);
+    setIsUpiQrModalOpen(true);
+  };
 
-          showSuccess('वार्षिक वर्गणी यशस्वीरित्या जमा झाली! पावती डाउनलोड होत आहे.');
-          setIsPayModalOpen(false);
+  const handleUpiQrSuccess = async (paymentId: string, orderId: string, utr?: string) => {
+    if (!memberProfile || !memberSummary) return;
+    const amountToPay = parseInt(customPayAmount, 10) || (memberSummary.remainingDue || MANDAL_CONFIG.annualSubscriptionFee);
 
-          // Download receipt
-          const doc = generateSubscriptionReceiptPDF(savedPayment);
-          doc.save(`Durga_Mandal_Subscription_${savedPayment.receiptNumber.replace(/\//g, '_')}.pdf`);
-        } catch (e) {
-          showError('पेमेंट रेकॉर्ड नोंदवताना त्रुटी आली.');
-        } finally {
-          setIsPayingSubscription(false);
-        }
-      },
-      onFailure: () => {
-        setIsPayingSubscription(false);
-        showError('पेमेंट रद्द केले किंवा अयशस्वी झाले.');
-      },
-      // BUG 8 fix: reset loading state when user dismisses the payment modal
-      onDismiss: () => {
-        setIsPayingSubscription(false);
-      }
-    });
+    try {
+      const savedPayment = await addMemberPayment({
+        memberId: memberProfile.id,
+        memberName: memberProfile.fullNameMarathi || memberProfile.fullName,
+        memberPhone: memberProfile.phone,
+        financialYear: MANDAL_CONFIG.currentFinancialYear,
+        amount: amountToPay,
+        paymentType: 'annual_subscription',
+        paymentMethod: 'upi_qr',
+        paymentStatus: 'pending',
+        razorpayOrderId: orderId,
+        razorpayPaymentId: utr ? `UTR_${utr}` : paymentId,
+        recordedBy: 'online'
+      });
+
+      showSuccess(`₹ ${amountToPay} ची वर्गणी नोंदणी स्वीकारली आहे! मंडळ ॲडमिन बँक पडताळणीनंतर WhatsApp वर अधिकृत पावती पाठवली जाईल.`);
+      setIsUpiQrModalOpen(false);
+    } catch (e) {
+      showError('पेमेंट रेकॉर्ड नोंदवताना त्रुटी आली.');
+    }
   };
 
   const handleDownloadReceipt = (payment: any) => {
     const doc = generateSubscriptionReceiptPDF(payment);
     doc.save(`Durga_Mandal_Subscription_${payment.receiptNumber.replace(/\//g, '_')}.pdf`);
+  };
+
+  const handleShareSubscriptionWhatsApp = (payment: any) => {
+    sendSubscriptionReceiptWhatsApp(payment);
   };
 
   return (
@@ -299,7 +306,14 @@ export const MemberPortalPage: React.FC = () => {
                     {memberProfile.fullNameMarathi || memberProfile.fullName}
                   </div>
                   <div style={{ fontSize: '0.82rem', color: '#FFE0B2', marginBottom: '4px' }}>
-                    मोबाईल: +91 {memberProfile.phone}
+                    मोबाईल:{' '}
+                    <a
+                      href={`tel:${(memberProfile.phone || '').replace(/\D/g, '')}`}
+                      style={{ color: '#FFE0B2', fontWeight: 700, textDecoration: 'none' }}
+                      title="थेट कॉल करा"
+                    >
+                      📞 +91 {memberProfile.phone}
+                    </a>
                   </div>
                   <div style={{ fontSize: '0.78rem', color: '#E0D6C8' }}>
                     प्रकार: {memberProfile.memberType === 'family' ? 'कुटुंब सभासद' : 'वैयक्तिक'} ({memberProfile.category})
@@ -342,7 +356,7 @@ export const MemberPortalPage: React.FC = () => {
                   fontWeight: 700,
                   color: memberSummary?.status === 'paid' ? '#81C784' : '#FFB74D'
                 }}>
-                  ● {memberSummary?.status === 'paid' ? 'वार्षिक वर्गणी पूर्ण (Active)' : 'वर्गणी बाकी'}
+                  ● {memberSummary?.status === 'paid' ? 'वार्षिक वर्गणी पूर्ण (Active)' : `वर्गणी बाकी (${formatINR(memberSummary?.remainingDue ?? 1500)})`}
                 </span>
               </div>
             </div>
@@ -354,56 +368,88 @@ export const MemberPortalPage: React.FC = () => {
                   <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
                     आर्थिक वर्ष {MANDAL_CONFIG.currentFinancialYear}
                   </div>
-                  <h2 style={{ fontSize: '1.3rem', color: 'var(--color-maroon-800)' }}>
+                  <h2 style={{ fontSize: '1.3rem', color: 'var(--color-maroon-800)', margin: 0 }}>
                     वार्षिक वर्गणी स्थिती
                   </h2>
                 </div>
 
                 {memberSummary?.status === 'paid' ? (
                   <span className="badge badge-success" style={{ fontSize: '0.85rem', padding: '6px 12px' }}>
-                    <CheckCircle size={14} /> {t.member.statusPaid}
+                    <CheckCircle size={14} /> वर्गणी पूर्ण (PAID)
+                  </span>
+                ) : (memberSummary?.status as string) === 'pending_verification' || (memberSummary?.pendingPaid || 0) > 0 ? (
+                  <span className="badge" style={{ fontSize: '0.85rem', padding: '6px 12px', backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', fontWeight: 700 }}>
+                    <Clock size={14} /> ⏳ पडताळणी प्रलंबित ({formatINR(memberSummary?.pendingPaid || 0)})
+                  </span>
+                ) : memberSummary?.status === 'partial' ? (
+                  <span className="badge badge-warning" style={{ fontSize: '0.85rem', padding: '6px 12px', backgroundColor: '#FFF3E0', color: '#E65100', border: '1px solid #FFE0B2' }}>
+                    <Clock size={14} /> अपूर्ण वर्गणी (बाकी: {formatINR(memberSummary?.remainingDue || 0)})
                   </span>
                 ) : (
-                  <span className="badge badge-warning" style={{ fontSize: '0.85rem', padding: '6px 12px' }}>
-                    <AlertCircle size={14} /> {t.member.statusPending}
+                  <span className="badge badge-danger" style={{ fontSize: '0.85rem', padding: '6px 12px', backgroundColor: '#FFEBEE', color: '#C62828', border: '1px solid #FFCDD2' }}>
+                    <AlertCircle size={14} /> वर्गणी बाकी ({formatINR(memberSummary?.remainingDue ?? 1500)})
                   </span>
                 )}
               </div>
 
+              {/* 3-Box Financial Breakdown */}
               <div style={{
                 backgroundColor: 'var(--color-surface-subtle)',
                 padding: 'var(--space-md)',
                 borderRadius: 'var(--radius-md)',
                 display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '12px'
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '10px'
               }}>
-                <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>नियोजित वार्षिक शुल्क</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                    {formatINR(memberSummary?.totalAnnualDue || 500)}
+                <div style={{ padding: '8px 10px', backgroundColor: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>१. वार्षिक शुल्क</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-text-primary)', marginTop: '4px' }}>
+                    {formatINR(memberSummary?.totalAnnualDue || 1500)}
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>जमा केलेली रक्कम</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-success)' }}>
-                    {formatINR(memberSummary?.totalPaid || 0)}
+
+                <div style={{ padding: '8px 10px', backgroundColor: (memberSummary?.pendingPaid || 0) > 0 ? '#FEF3C7' : '#F1F8E9', borderRadius: 'var(--radius-sm)', border: (memberSummary?.pendingPaid || 0) > 0 ? '1px solid #FDE68A' : '1px solid #C8E6C9' }}>
+                  <div style={{ fontSize: '0.74rem', color: (memberSummary?.pendingPaid || 0) > 0 ? '#B45309' : '#2E7D32', fontWeight: 600 }}>
+                    २. जमा / प्रलंबित
+                  </div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: (memberSummary?.pendingPaid || 0) > 0 ? '#D97706' : '#2E7D32', marginTop: '4px' }}>
+                    {formatINR((memberSummary?.totalPaid || 0) + (memberSummary?.pendingPaid || 0))}
+                    {(memberSummary?.pendingPaid || 0) > 0 && <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#B45309' }}>(पडताळणी प्रलंबित)</span>}
+                  </div>
+                </div>
+
+                <div style={{ padding: '8px 10px', backgroundColor: '#FFEBEE', borderRadius: 'var(--radius-sm)', border: '1px solid #FFCDD2' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#C62828', fontWeight: 700 }}>३. बाकी वर्गणी (Pending)</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#C62828', marginTop: '4px' }}>
+                    {formatINR(memberSummary?.remainingDue ?? 1500)}
                   </div>
                 </div>
               </div>
 
-              {memberSummary?.status !== 'paid' ? (
-                <div style={{ marginTop: 'auto' }}>
-                  <button
-                    onClick={() => setIsPayModalOpen(true)}
-                    className="btn btn-saffron btn-lg"
-                    style={{ width: '100%', gap: '8px' }}
-                  >
-                    <CreditCard size={18} />
-                    <span>{t.member.paySubscriptionBtn} ({formatINR(memberSummary?.remainingDue || 500)})</span>
-                  </button>
+              {/* Payment Progress Bar */}
+              {memberSummary && memberSummary.totalAnnualDue > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div className="flex-between" style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                    <span>वर्गणी जमा प्रगती (Progress)</span>
+                    <span style={{ color: memberSummary.status === 'paid' ? '#2E7D32' : (memberSummary.pendingPaid || 0) > 0 ? '#D97706' : '#C62828', fontWeight: 700 }}>
+                      {Math.min(100, Math.round((((memberSummary.totalPaid || 0) + (memberSummary.pendingPaid || 0)) / memberSummary.totalAnnualDue) * 100))}% भरली
+                    </span>
+                  </div>
+                  <div style={{ height: '8px', width: '100%', backgroundColor: '#E0E0E0', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${Math.min(100, Math.round((((memberSummary.totalPaid || 0) + (memberSummary.pendingPaid || 0)) / memberSummary.totalAnnualDue) * 100))}%`,
+                        backgroundColor: memberSummary.status === 'paid' ? '#4CAF50' : (memberSummary.pendingPaid || 0) > 0 ? '#F59E0B' : '#FF9800',
+                        borderRadius: '4px',
+                        transition: 'width 0.4s ease'
+                      }}
+                    />
+                  </div>
                 </div>
-              ) : (
+              )}
+
+              {memberSummary?.status === 'paid' ? (
                 <div style={{
                   padding: '10px 14px',
                   backgroundColor: 'var(--color-success-bg)',
@@ -416,6 +462,41 @@ export const MemberPortalPage: React.FC = () => {
                 }}>
                   <CheckCircle size={18} />
                   <span>आर्थिक वर्ष {MANDAL_CONFIG.currentFinancialYear} साठी आपली वर्गणी पूर्ण भरली गेली आहे. धन्यवाद!</span>
+                </div>
+              ) : (memberSummary?.status as string) === 'pending_verification' || (memberSummary?.remainingDue || 0) === 0 ? (
+                <div style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#FEF3C7',
+                  border: '1px solid #FDE68A',
+                  borderRadius: 'var(--radius-md)',
+                  color: '#92400E',
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  fontWeight: 700
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Clock size={20} color="#D97706" />
+                    <div>
+                      <div>⏳ वर्गणी नोंद स्वीकारली आहे! बँक पडताळणी प्रलंबित</div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 500, color: '#B45309', marginTop: '2px' }}>
+                        मंडळ ॲडमिन बँक खात्यात पडताळणी करून WhatsApp वर पावती पाठवतील.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ marginTop: 'auto' }}>
+                  <button
+                    onClick={handleOpenPayModal}
+                    className="btn btn-saffron btn-lg"
+                    style={{ width: '100%', gap: '8px' }}
+                  >
+                    <CreditCard size={18} />
+                    <span>{t.member.paySubscriptionBtn} ({formatINR(memberSummary?.remainingDue || 500)})</span>
+                  </button>
                 </div>
               )}
 
@@ -433,6 +514,43 @@ export const MemberPortalPage: React.FC = () => {
 
           {/* Payment and Receipt History Table */}
           <div className="card">
+            {memberSummary && memberSummary.remainingDue > 0 && (
+              <div style={{
+                backgroundColor: '#FFF8E1',
+                border: '1px solid #FFE082',
+                borderRadius: 'var(--radius-md)',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                marginBottom: '16px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '38px', height: '38px', borderRadius: '50%', backgroundColor: '#FF8F00', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Clock size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#D84315', fontSize: '0.98rem' }}>
+                      चालू वर्ष २०२६-२७ ची बाकी वर्गणी: {formatINR(memberSummary.remainingDue)}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#6D4C41', marginTop: '2px' }}>
+                      एकूण वार्षिक शुल्क: {formatINR(memberSummary.totalAnnualDue)} | आतापर्यंत जमा: {formatINR(memberSummary.totalPaid)}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleOpenPayModal}
+                  className="btn btn-saffron btn-sm"
+                  style={{ gap: '6px', fontWeight: 700 }}
+                >
+                  <CreditCard size={15} />
+                  <span>आत्ताच वर्गणी जमा करा ({formatINR(memberSummary.remainingDue)})</span>
+                </button>
+              </div>
+            )}
+
             <h2 style={{ fontSize: '1.25rem', color: 'var(--color-maroon-800)', marginBottom: 'var(--space-md)' }}>
               {t.member.paymentHistory}
             </h2>
@@ -699,39 +817,38 @@ export const MemberPortalPage: React.FC = () => {
             </p>
           </div>
 
-          {!isOtpSent ? (
-            <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            <form onSubmit={handleDirectLogin} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
               <div className="form-group">
-                <label className="form-label form-label-required">{t.donations.mobileNumber}</label>
+                <label className="form-label form-label-required">मोबाईल नंबर किंवा सभासद आयडी (Mobile No. / Member ID)</label>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>+91</span>
                   <input
-                    type="tel"
+                    type="text"
                     required
-                    maxLength={10}
+                    disabled={isLoggingIn}
                     className="form-input"
-                    style={{ paddingLeft: '44px' }}
-                    placeholder="9822112233"
+                    placeholder="उदा. 9087643575 किंवा DM-2024-005 / mem-1001"
                     value={loginPhone}
                     onChange={(e) => setLoginPhone(e.target.value)}
                   />
                 </div>
+                <span className="form-hint">नोंदणीकृत १० अंकी मोबाईल नंबर किंवा सभासद आयडी टाका</span>
               </div>
 
-              <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }}>
-                <span>{t.member.getOtp}</span>
+              <button
+                type="submit"
+                disabled={isLoggingIn || !loginPhone.trim()}
+                className="btn btn-primary btn-lg"
+                style={{ width: '100%', gap: '8px', justifyContent: 'center', fontWeight: 700 }}
+              >
+                {isLoggingIn ? (
+                  <span>प्रतिक्षा करा, प्रोफाइल उघडत आहे...</span>
+                ) : (
+                  <>
+                    <KeyRound size={18} />
+                    <span>सभासद लॉगिन करा (Member Login)</span>
+                  </>
+                )}
               </button>
-
-              <div style={{ textAlign: 'center', marginTop: 'var(--space-sm)' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>नवीन सभासद आहात? </span>
-                <button
-                  type="button"
-                  onClick={() => setActiveMode('register')}
-                  style={{ background: 'none', border: 'none', color: 'var(--color-maroon-700)', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
-                >
-                  {t.member.registerTitle}
-                </button>
-              </div>
 
               {/* Super Admin & Administrative Direct Access Box */}
               <div style={{
@@ -757,105 +874,37 @@ export const MemberPortalPage: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
                   <button
                     type="button"
-                    onClick={() => {
-                      const { switchRoleForDemo } = useAuth as any;
-                    }}
-                    style={{ display: 'none' }}
-                  />
-                  <button
-                    type="button"
                     onClick={async () => {
-                      await loginWithPhone('9822000001', '123456');
-                      showSuccess('👑 Super Admin म्हणून यशस्वीरित्या लॉगिन झाले!');
+                      await loginWithPhone('8459063045', '123456');
+                      showSuccess('👑 विश्वा बावणे (Super Admin) म्हणून लॉगिन झाले!');
                       setActiveMode('profile');
                     }}
                     className="btn btn-primary btn-sm"
                     style={{ fontSize: '0.78rem', padding: '6px 8px', justifyContent: 'flex-start', gap: '4px' }}
+                    title="8459063045"
                   >
-                    <span>👑 Super Admin</span>
+                    <span>👑 विश्वा बावणे (Admin)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={async () => {
-                      await loginWithPhone('9822055667', '123456');
-                      showSuccess('💰 खजिनदार (Treasurer) म्हणून लॉगिन झाले!');
+                      await loginWithPhone('7796052953', '123456');
+                      showSuccess('👑 टिळक गायकवाड (Super Admin) म्हणून लॉगिन झाले!');
                       setActiveMode('profile');
                     }}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.78rem', padding: '6px 8px', justifyContent: 'flex-start', gap: '4px' }}
+                    className="btn btn-primary btn-sm"
+                    style={{ fontSize: '0.78rem', padding: '6px 8px', justifyContent: 'flex-start', gap: '4px', backgroundColor: 'var(--color-maroon-800)', borderColor: 'var(--color-maroon-800)' }}
+                    title="7796052953"
                   >
-                    <span>💰 खजिनदार (Treasurer)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await loginWithPhone('9822044556', '123456');
-                      showSuccess('📋 कार्यकारणी प्रमुख म्हणून लॉगिन झाले!');
-                      setActiveMode('profile');
-                    }}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.78rem', padding: '6px 8px', justifyContent: 'flex-start', gap: '4px' }}
-                  >
-                    <span>📋 कार्यकारणी प्रमुख</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await loginWithPhone('9822112233', '123456');
-                      showSuccess('👤 सर्वसाधारण सभासद म्हणून लॉगिन झाले!');
-                      setActiveMode('profile');
-                    }}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.78rem', padding: '6px 8px', justifyContent: 'flex-start', gap: '4px' }}
-                  >
-                    <span>👤 सभासद (Member)</span>
+                    <span>👑 टिळक गायकवाड (Admin)</span>
                   </button>
                 </div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
-                  टीप: वरील कोणत्याही बटणावर क्लिक करून थेट संबंधित भूमिकेत प्रवेश करता येईल.
+                  टीप: वरील बटणावर क्लिक करून किंवा मोबाईल नंबरवर SMS OTP मागवून थेट प्रवेश करता येईल.
                 </div>
               </div>
             </form>
-          ) : (
-            <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-              <div className="form-group">
-                <label className="form-label form-label-required">{t.member.enterOtp}</label>
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  className="form-input"
-                  style={{ textAlign: 'center', letterSpacing: '8px', fontSize: '1.4rem', fontWeight: 700 }}
-                  placeholder="123456"
-                  value={loginOtp}
-                  onChange={(e) => setLoginOtp(e.target.value)}
-                />
-                <span className="form-hint">डेमो प्रमाणीकरण: 123456 प्रविष्ट करा</span>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoggingIn}
-                className="btn btn-primary btn-lg"
-                style={{ width: '100%' }}
-              >
-                {isLoggingIn ? t.common.loading : t.member.verifyOtp}
-              </button>
-
-              <div style={{ textAlign: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsOtpSent(false)}
-                  style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', fontSize: '0.82rem', cursor: 'pointer' }}
-                >
-                  मोबाईल नंबर बदला (Change Number)
-                </button>
-              </div>
-            </form>
-          )}
         </div>
       )}
 
@@ -876,18 +925,44 @@ export const MemberPortalPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-between" style={{ padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
-            <span>वार्षिक शुल्क रक्कम:</span>
-            <strong style={{ fontSize: '1.2rem', color: 'var(--color-maroon-800)' }}>
-              {formatINR(memberSummary?.remainingDue || MANDAL_CONFIG.annualSubscriptionFee)}
-            </strong>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', backgroundColor: 'var(--color-surface-subtle)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+            <div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>नियोजित वार्षिक वर्गणी</div>
+              <div style={{ fontWeight: 700, fontSize: '0.98rem', color: 'var(--color-text-primary)' }}>
+                {formatINR(memberSummary?.totalAnnualDue || 1500)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>सध्याची बाकी रक्कम</div>
+              <div style={{ fontWeight: 700, fontSize: '0.98rem', color: (memberSummary?.remainingDue || 0) > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                {formatINR(memberSummary?.remainingDue ?? 1500)}
+              </div>
+            </div>
           </div>
 
-          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
-            पेमेंट पूर्ण होताच अधिकृत संगणकीकृत पावती आपणास त्वरित प्राप्त होईल आणि ओळखपत्रावर 'वर्गणी पूर्ण (Paid)' स्थिती अद्ययावत केली जाईल.
-          </p>
+          <div className="form-group" style={{ marginTop: '12px', marginBottom: '8px' }}>
+            <label className="form-label form-label-required" style={{ fontWeight: 700, fontSize: '0.92rem' }}>
+              जमा करावयाची रक्कम एडिट / प्रविष्ट करा (₹):
+            </label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--color-maroon-800)', fontSize: '1.1rem' }}>₹</span>
+              <input
+                type="number"
+                min="1"
+                required
+                className="form-input"
+                style={{ paddingLeft: '32px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-maroon-800)' }}
+                value={customPayAmount}
+                onChange={(e) => setCustomPayAmount(e.target.value)}
+                placeholder="उदा. ५००, १०००, १५००"
+              />
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+              💡 आपण १५०० पैकी कोणतीही रक्कम (उदा. ₹५००, ₹१०००, ₹१५००) एडिट करून भरू शकता.
+            </div>
+          </div>
 
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: 'var(--space-sm)' }}>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: 'var(--space-xs)' }}>
             <button
               onClick={() => setIsPayModalOpen(false)}
               className="btn btn-secondary"
@@ -896,14 +971,29 @@ export const MemberPortalPage: React.FC = () => {
             </button>
             <button
               onClick={handlePaySubscription}
-              disabled={isPayingSubscription}
+              disabled={!customPayAmount || parseInt(customPayAmount, 10) <= 0}
               className="btn btn-saffron"
+              style={{ fontWeight: 700, gap: '6px' }}
             >
-              {isPayingSubscription ? 'प्रक्रिया सुरू आहे...' : 'सुरक्षित पेमेंट करा (Razorpay)'}
+              <QrCode size={16} />
+              <span>QR कोड स्कॅन करा व भरा ({formatINR(parseInt(customPayAmount, 10) || 0)})</span>
             </button>
           </div>
         </div>
       </Modal>
+
+      {/* Live UPI QR Scanner Modal */}
+      {memberProfile && (
+        <UpiQrPaymentModal
+          isOpen={isUpiQrModalOpen}
+          onClose={() => setIsUpiQrModalOpen(false)}
+          amount={parseInt(customPayAmount, 10) || (memberSummary?.remainingDue || MANDAL_CONFIG.annualSubscriptionFee)}
+          title={`वार्षिक वर्गणी QR कोड स्कॅनर — FY ${MANDAL_CONFIG.currentFinancialYear}`}
+          donorName={memberProfile.fullNameMarathi || memberProfile.fullName}
+          donorPhone={memberProfile.phone}
+          onSuccess={handleUpiQrSuccess}
+        />
+      )}
     </div>
   );
 };

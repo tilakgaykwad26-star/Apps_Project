@@ -12,7 +12,11 @@ export type PaymentMethod =
   | 'razorpay_netbanking'
   | 'cash'
   | 'direct_upi'
-  | 'bank_transfer';
+  | 'bank_transfer'
+  | 'upi'
+  | 'upi_qr'
+  | 'online'
+  | 'cheque';
 
 export type PaymentStatus = 'successful' | 'pending' | 'failed' | 'refunded';
 

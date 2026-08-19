@@ -5,8 +5,7 @@ import { DonationType, Donation } from '../types/donation';
 import { MANDAL_CONFIG } from '../config/constants';
 import { formatINR, numberToMarathiWords, numberToEnglishWords } from '../utils/currencyUtils';
 import { isValidIndianPhone, isValidPAN, isValidEmail } from '../utils/validationUtils';
-import { processRazorpayCheckout } from '../services/paymentService';
-import { generateDonationReceiptPDF } from '../services/receiptService';
+import { generateDonationReceiptPDF, sendDonationReceiptWhatsApp } from '../services/receiptService';
 import { useNotification } from '../context/NotificationContext';
 import {
   HeartHandshake,
@@ -21,8 +20,10 @@ import {
   ArrowRight,
   Info,
   CreditCard,
-  Building
+  Building,
+  QrCode
 } from 'lucide-react';
+import { UpiQrPaymentModal } from '../components/common/UpiQrPaymentModal';
 
 export const DonatePage: React.FC = () => {
   const { language, t, isMarathi } = useLanguage();
@@ -45,6 +46,7 @@ export const DonatePage: React.FC = () => {
 
   // Success State
   const [completedDonation, setCompletedDonation] = useState<Donation | null>(null);
+  const [isUpiQrModalOpen, setIsUpiQrModalOpen] = useState(false);
 
   const donationCategories: { key: DonationType; label: string; desc: string }[] = [
     {
@@ -119,59 +121,35 @@ export const DonatePage: React.FC = () => {
       return;
     }
 
-    setIsProcessing(true);
+    // Open UPI QR Code Scanner Modal directly
+    setIsUpiQrModalOpen(true);
+  };
 
+  const handleUpiQrSuccess = async (paymentId: string, orderId: string, utr?: string) => {
+    const amount = getEffectiveAmount();
     const typeObj = donationCategories.find((c) => c.key === selectedType);
-
-    processRazorpayCheckout({
-      amount,
-      donorName: isAnonymous ? 'Anonymous Devotee' : donorName.trim(),
-      donorPhone: donorPhone.trim(),
-      donorEmail: donorEmail.trim(),
-      description: `श्री दुर्गा मंडळ देणगी: ${typeObj?.label || 'देणगी'}`,
-      notes: {
+    try {
+      const savedDonation = await addDonation({
+        amount,
+        donorName: isAnonymous ? 'Anonymous Devotee' : donorName.trim(),
+        donorPhone: donorPhone.trim(),
+        donorEmail: donorEmail.trim() || undefined,
+        donorPan: donorPan.trim().toUpperCase() || undefined,
+        donorCity: donorCity.trim() || 'पुणे',
         donationType: selectedType,
-        donorCity: donorCity.trim(),
-      },
-      onSuccess: async (paymentId, orderId, signature) => {
-        try {
-          const savedDonation = await addDonation({
-            amount,
-            donorName: isAnonymous ? 'Anonymous Devotee' : donorName.trim(),
-            donorPhone: donorPhone.trim(),
-            donorEmail: donorEmail.trim() || undefined,
-            donorPan: donorPan.trim().toUpperCase() || undefined,
-            donorCity: donorCity.trim() || 'पुणे',
-            donationType: selectedType,
-            donationTypeMarathi: typeObj?.label || 'देणगी',
-            paymentMethod: 'razorpay_upi',
-            paymentStatus: 'successful',
-            razorpayOrderId: orderId,
-            razorpayPaymentId: paymentId,
-            razorpaySignature: signature,
-            isAnonymous
-          });
+        donationTypeMarathi: typeObj?.label || 'देणगी',
+        paymentMethod: 'upi_qr',
+        paymentStatus: 'pending',
+        razorpayOrderId: orderId,
+        razorpayPaymentId: utr ? `UTR_${utr}` : paymentId,
+        isAnonymous
+      });
 
-          setCompletedDonation(savedDonation);
-          showSuccess(t.donations.paymentSuccessTitle);
-          // Auto trigger PDF download
-          const doc = generateDonationReceiptPDF(savedDonation);
-          doc.save(`Durga_Mandal_Receipt_${savedDonation.receiptNumber.replace(/\//g, '_')}.pdf`);
-        } catch (err) {
-          showError('पेमेंट रेकॉर्ड जतन करताना अडचण आली.');
-        } finally {
-          setIsProcessing(false);
-        }
-      },
-      onFailure: (err) => {
-        setIsProcessing(false);
-        showError('पेमेंट अयशस्वी झाले किंवा वापरकर्त्याने रद्द केले.');
-      },
-      // BUG 8 fix: reset processing state when modal dismissed without payment
-      onDismiss: () => {
-        setIsProcessing(false);
-      }
-    });
+      setCompletedDonation(savedDonation);
+      showSuccess('देणगी समर्पण यशस्वीरित्या नोंदवले! मंडळ ॲडमिन बँक पडताळणीनंतर WhatsApp वर अधिकृत पावती पाठवली जाईल.');
+    } catch (err) {
+      showError('पेमेंट रेकॉर्ड जतन करताना अडचण आली.');
+    }
   };
 
   const handleDownloadPDF = () => {
@@ -183,8 +161,7 @@ export const DonatePage: React.FC = () => {
 
   const handleShareWhatsApp = () => {
     if (!completedDonation) return;
-    const msg = `॥ श्री दुर्गा प्रसन्न ॥\nमी ${MANDAL_CONFIG.nameMarathi} नवरात्रोत्सवासाठी ${formatINR(completedDonation.amount)} ची देणगी अर्पण केली आहे.\nअधिकृत पावती क्र: ${completedDonation.receiptNumber}\nदेवी दुर्गेचा कृपाप्रसाद आपल्या पाठीशी राहो! 🙏`;
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+    sendDonationReceiptWhatsApp(completedDonation);
   };
 
   return (
@@ -215,14 +192,14 @@ export const DonatePage: React.FC = () => {
         </p>
       </div>
 
-      {/* 2. Success Modal / Card State */}
+      {/* 2. Success / Pending Modal / Card State */}
       {completedDonation ? (
         <div className="card" style={{
           maxWidth: '680px',
           margin: '0 auto',
           textAlign: 'center',
           padding: 'var(--space-2xl) var(--space-xl)',
-          border: '2px solid var(--color-gold-500)',
+          border: completedDonation.paymentStatus === 'pending' ? '2px solid #F59E0B' : '2px solid var(--color-gold-500)',
           backgroundColor: '#fff',
           boxShadow: 'var(--shadow-xl)'
         }}>
@@ -230,8 +207,8 @@ export const DonatePage: React.FC = () => {
             width: '72px',
             height: '72px',
             borderRadius: '50%',
-            backgroundColor: 'var(--color-success-bg)',
-            color: 'var(--color-success)',
+            backgroundColor: completedDonation.paymentStatus === 'pending' ? '#FEF3C7' : 'var(--color-success-bg)',
+            color: completedDonation.paymentStatus === 'pending' ? '#D97706' : 'var(--color-success)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -241,10 +218,12 @@ export const DonatePage: React.FC = () => {
           </div>
 
           <h2 style={{ fontSize: '1.6rem', color: 'var(--color-maroon-800)', marginBottom: '8px' }}>
-            {t.donations.paymentSuccessTitle}
+            {completedDonation.paymentStatus === 'pending' ? 'देणगी नोंदणी यशस्वी! (पडताळणी प्रलंबित)' : t.donations.paymentSuccessTitle}
           </h2>
           <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: 'var(--space-lg)' }}>
-            {t.donations.paymentSuccessMsg}
+            {completedDonation.paymentStatus === 'pending'
+              ? `आपली ₹${completedDonation.amount} ची देणगी नोंदणी स्वीकारली आहे. मंडळ ॲडमिनकडून बँक खात्यात पडताळणी पूर्ण होताच आपल्या WhatsApp (+91 ${completedDonation.donorPhone}) वर अधिकृत पावती पाठवली जाईल.`
+              : t.donations.paymentSuccessMsg}
           </p>
 
           <div style={{
@@ -264,7 +243,7 @@ export const DonatePage: React.FC = () => {
             </div>
             <div className="flex-between">
               <span style={{ color: 'var(--color-text-muted)' }}>दान रक्कम:</span>
-              <strong style={{ color: 'var(--color-success)', fontSize: '1.1rem' }}>{formatINR(completedDonation.amount)}</strong>
+              <strong style={{ color: 'var(--color-maroon-800)', fontSize: '1.1rem' }}>{formatINR(completedDonation.amount)}</strong>
             </div>
             <div className="flex-between">
               <span style={{ color: 'var(--color-text-muted)' }}>देणगीदार:</span>
@@ -274,34 +253,51 @@ export const DonatePage: React.FC = () => {
               <span style={{ color: 'var(--color-text-muted)' }}>प्रकार:</span>
               <span>{completedDonation.donationTypeMarathi}</span>
             </div>
+            <div className="flex-between">
+              <span style={{ color: 'var(--color-text-muted)' }}>पडताळणी स्थिती:</span>
+              <span className="badge" style={{ backgroundColor: '#FEF3C7', color: '#92400E', fontWeight: 700 }}>
+                ⏳ मंडळ ॲडमिन पडताळणी प्रलंबित
+              </span>
+            </div>
+            <div className="flex-between">
+              <span style={{ color: 'var(--color-text-muted)' }}>WhatsApp नंबर:</span>
+              <strong>+91 {completedDonation.donorPhone}</strong>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-md)', justifyContent: 'center' }}>
-            <button
-              onClick={handleDownloadPDF}
-              className="btn btn-primary btn-lg"
-              style={{ gap: '8px' }}
-            >
-              <Download size={18} />
-              <span>{t.donations.downloadReceipt}</span>
-            </button>
+          {completedDonation.paymentStatus === 'successful' && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-md)', justifyContent: 'center' }}>
+              <button
+                onClick={handleDownloadPDF}
+                className="btn btn-primary btn-lg"
+                style={{ gap: '8px' }}
+              >
+                <Download size={18} />
+                <span>{t.donations.downloadReceipt}</span>
+              </button>
 
-            <button
-              onClick={handleShareWhatsApp}
-              className="btn btn-saffron btn-lg"
-              style={{ gap: '8px', backgroundColor: '#25D366', borderColor: '#25D366' }}
-            >
-              <Share2 size={18} />
-              <span>{t.donations.shareWhatsApp}</span>
-            </button>
-          </div>
+              <button
+                onClick={handleShareWhatsApp}
+                className="btn btn-saffron btn-lg"
+                style={{ gap: '8px', backgroundColor: '#25D366', borderColor: '#25D366' }}
+              >
+                <Share2 size={18} />
+                <span>{t.donations.shareWhatsApp}</span>
+              </button>
+            </div>
+          )}
 
           <div style={{ marginTop: 'var(--space-xl)' }}>
             <button
-              onClick={() => setCompletedDonation(null)}
-              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                setCompletedDonation(null);
+                setDonorName('');
+                setDonorPhone('');
+                setCustomAmount('');
+              }}
+              className="btn btn-secondary btn-md"
             >
-              दुसरी देणगी द्या (Make Another Donation)
+              + दुसरी देणगी नोंदवा (Make Another Donation)
             </button>
           </div>
         </div>
@@ -530,6 +526,17 @@ export const DonatePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Live UPI QR Scanner Modal for Donations */}
+      <UpiQrPaymentModal
+        isOpen={isUpiQrModalOpen}
+        onClose={() => setIsUpiQrModalOpen(false)}
+        amount={getEffectiveAmount()}
+        title="श्री दुर्गा मंडळ — देणगी UPI QR कोड स्कॅनर"
+        donorName={isAnonymous ? 'Anonymous Devotee' : (donorName || 'भाविक')}
+        donorPhone={donorPhone}
+        onSuccess={handleUpiQrSuccess}
+      />
     </div>
   );
 };

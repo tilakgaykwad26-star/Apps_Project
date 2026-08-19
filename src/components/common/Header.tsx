@@ -115,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
                 <div style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--color-text-muted)', borderBottom: '1px solid var(--color-border)' }}>
                   परीक्षणासाठी भूमिका निवडा (Demo RBAC):
                 </div>
-                {(['super_admin', 'treasurer', 'committee_admin', 'content_manager', 'member', 'guest'] as UserRole[]).map((r) => (
+                {(['super_admin', 'member', 'guest'] as UserRole[]).map((r) => (
                   <button
                     key={r}
                     onClick={() => {
@@ -255,10 +255,10 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
             flexShrink: 0
           }}>
             <svg viewBox="0 0 100 100" style={{ width: '38px', height: '38px' }}>
-              <circle cx="50" cy="50" r="46" fill="#871C1C"/>
-              <path d="M50 18 L50 78 M42 26 C42 42 50 48 50 48 C50 48 58 42 58 26 M50 18 L46 25 L54 25 Z" stroke="#D4AF37" strokeWidth="4" fill="#D4AF37" strokeLinecap="round"/>
-              <path d="M50 12 Q54 16 50 20 Q46 16 50 12 Z" fill="#FF9800"/>
-              <rect x="36" y="76" width="28" height="6" rx="2" fill="#D4AF37"/>
+              <circle cx="50" cy="50" r="46" fill="#871C1C" />
+              <path d="M50 18 L50 78 M42 26 C42 42 50 48 50 48 C50 48 58 42 58 26 M50 18 L46 25 L54 25 Z" stroke="#D4AF37" strokeWidth="4" fill="#D4AF37" strokeLinecap="round" />
+              <path d="M50 12 Q54 16 50 20 Q46 16 50 12 Z" fill="#FF9800" />
+              <rect x="36" y="76" width="28" height="6" rx="2" fill="#D4AF37" />
             </svg>
           </div>
 
@@ -295,13 +295,13 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
                   background: item.highlight
                     ? 'linear-gradient(135deg, var(--color-saffron-500) 0%, var(--color-saffron-600) 100%)'
                     : isActive
-                    ? 'var(--color-maroon-50)'
-                    : 'transparent',
+                      ? 'var(--color-maroon-50)'
+                      : 'transparent',
                   color: item.highlight
                     ? '#ffffff'
                     : isActive
-                    ? 'var(--color-maroon-700)'
-                    : 'var(--color-text-primary)',
+                      ? 'var(--color-maroon-700)'
+                      : 'var(--color-text-primary)',
                   fontWeight: isActive || item.highlight ? 700 : 500,
                   fontSize: '0.88rem',
                   padding: '6px 12px',
@@ -309,8 +309,8 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
                   border: item.highlight
                     ? 'none'
                     : isActive
-                    ? '1px solid var(--color-maroon-100)'
-                    : '1px solid transparent',
+                      ? '1px solid var(--color-maroon-100)'
+                      : '1px solid transparent',
                   cursor: 'pointer',
                   transition: 'all var(--transition-fast)',
                   display: 'flex',
@@ -508,13 +508,13 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
                       background: item.highlight
                         ? 'linear-gradient(135deg, var(--color-saffron-500) 0%, var(--color-saffron-600) 100%)'
                         : isActive
-                        ? 'var(--color-maroon-50)'
-                        : 'transparent',
+                          ? 'var(--color-maroon-50)'
+                          : 'transparent',
                       color: item.highlight
                         ? '#ffffff'
                         : isActive
-                        ? 'var(--color-maroon-700)'
-                        : 'var(--color-text-primary)',
+                          ? 'var(--color-maroon-700)'
+                          : 'var(--color-text-primary)',
                       fontWeight: isActive || item.highlight ? 700 : 500,
                       fontSize: '0.95rem',
                       cursor: 'pointer',

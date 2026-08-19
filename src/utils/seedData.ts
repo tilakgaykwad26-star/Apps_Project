@@ -6,6 +6,7 @@ import { Member } from '../types/auth';
 import { Donation } from '../types/donation';
 import { MemberPayment } from '../types/payment';
 import { Sponsor } from '../types/sponsor';
+import { Expense } from '../types/expense';
 
 export const SEED_COMMITTEE: CommitteeMember[] = [
   {
@@ -15,7 +16,7 @@ export const SEED_COMMITTEE: CommitteeMember[] = [
     designationMarathi: 'अध्यक्ष',
     designationEnglish: 'President',
     phone: '+91 89991 61652',
-    photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
+    photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
     hierarchyOrder: 1,
     isCoreMember: true,
     roleDescriptionMarathi: 'मंडळाचे सर्वांगीण नेतृत्व व सामाजिक समन्वय'
@@ -27,7 +28,7 @@ export const SEED_COMMITTEE: CommitteeMember[] = [
     designationMarathi: 'उपाध्यक्ष',
     designationEnglish: 'Vice President',
     phone: '+91 96991 74824',
-    photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80',
+    photoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&auto=format&fit=crop&q=80',
     hierarchyOrder: 2,
     isCoreMember: true,
     roleDescriptionMarathi: 'कायदेशीर सल्ला व उत्सव व्यवस्थापन'
@@ -39,7 +40,7 @@ export const SEED_COMMITTEE: CommitteeMember[] = [
     designationMarathi: 'सचिव',
     designationEnglish: 'Secretary',
     phone: '+91 84590 63045',
-    photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&auto=format&fit=crop&q=80',
+    photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&auto=format&fit=crop&q=80',
     hierarchyOrder: 3,
     isCoreMember: true,
     roleDescriptionMarathi: 'उत्सव नियोजन व स्वयंसेवक समन्वय'
@@ -51,7 +52,7 @@ export const SEED_COMMITTEE: CommitteeMember[] = [
     designationMarathi: 'कोषाध्यक्ष',
     designationEnglish: 'Vice Secretary',
     phone: '+91 96073 96623',
-    photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&auto=format&fit=crop&q=80',
+    photoUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400&auto=format&fit=crop&q=80',
     hierarchyOrder: 4,
     isCoreMember: true,
     roleDescriptionMarathi: 'दप्तर नोंदणी, पत्रव्यवहार व शासकीय परवानग्या'
@@ -63,7 +64,7 @@ export const SEED_COMMITTEE: CommitteeMember[] = [
     designationMarathi: 'Apps developer',
     designationEnglish: 'Apps developer',
     phone: '+91 77960 52953',
-    photoUrl: 'https://ibb.co/LhSJ6g2C',
+    photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
     hierarchyOrder: 5,
     isCoreMember: true,
     roleDescriptionMarathi: 'हिशोब व्यवस्थापन, पावती नियंत्रण व लेखापरीक्षण'
@@ -74,7 +75,7 @@ export const SEED_EVENTS: MandalEvent[] = [
   {
     id: 'evt-1',
     title: 'Ghatasthapana & Grand Procession',
-    titleMarathi: 'घटस्थापना व भव्य आगमन मिरवणूक',
+    titleMarathi: 'दुर्गामातेचा आगमन सोहळा व घटस्थापना',
     description: 'Traditional Ghatasthapana rituals, Vedic chanting by Guruji, followed by flower decoration and grand evening Aarti.',
     descriptionMarathi: 'पारंपरिक घटस्थापना, वेदोक्त मंत्रोच्चार, सुवर्ण अलंकारांनी देवीची पूजा आणि सायंकाळी भव्य महाआरती.',
     startDate: '2026-10-15T08:00:00.000Z',
@@ -83,7 +84,7 @@ export const SEED_EVENTS: MandalEvent[] = [
     venue: 'Durga Mandap, Chop, Gadchiroli',
     venueMarathi: 'श्री दुर्गा मंडप, चोप, गडचिरोली',
     venueMapUrl: 'https://maps.google.com/?q=Chop+Gadchiroli',
-    coverImageUrl: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=800&auto=format&fit=crop&q=80',
+    coverImageUrl: 'https://images.unsplash.com/photo-1608889825205-eebdb9fc5806?w=800&auto=format&fit=crop&q=80',
     status: 'upcoming',
     isRsvpEnabled: true,
     rsvpLimit: 500,
@@ -96,7 +97,7 @@ export const SEED_EVENTS: MandalEvent[] = [
   {
     id: 'evt-2',
     title: 'Grand Maha Aarti & Cultural Evening',
-    titleMarathi: '१०८ दिव्यांची महाआरती व पारंपरिक भजन संध्या',
+    titleMarathi: 'मातेची आरती व महाप्रसाद वितरण',
     description: 'Auspicious Maha Aarti with 108 oil lamps, devotional classical singing by renowned artists.',
     descriptionMarathi: 'अष्टमीच्या शुभमुहूर्तावर १०८ समयांची दीपोत्सव महाआरती आणि सुप्रसिद्ध गायकांचा भक्तिसंगीत सोहळा.',
     startDate: '2026-10-21T18:30:00.000Z',
@@ -203,7 +204,7 @@ export const SEED_ALBUMS: GalleryAlbum[] = [
     title: 'Sharadiya Navratri Utsav 2025',
     titleMarathi: 'शारदीय नवरात्रोत्सव २०२५ — नयनरम्य क्षणचित्रे',
     description: 'Glimpses of last year grand celebration, Aarti, and cultural events.',
-    coverImageUrl: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=600&auto=format&fit=crop&q=80',
+    coverImageUrl: 'https://images.unsplash.com/photo-1608889825205-eebdb9fc5806?w=600&auto=format&fit=crop&q=80',
     year: '2025',
     imageCount: 6,
     createdAt: '2025-10-30T10:00:00.000Z'
@@ -234,8 +235,8 @@ export const SEED_IMAGES: GalleryImage[] = [
   {
     id: 'img-101',
     albumId: 'alb-1',
-    imageUrl: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=1200&auto=format&fit=crop&q=80',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=400&auto=format&fit=crop&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1608889825205-eebdb9fc5806?w=1200&auto=format&fit=crop&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1608889825205-eebdb9fc5806?w=400&auto=format&fit=crop&q=80',
     captionMarathi: 'श्री दुर्गा मातेचे विलोभनीय सुवर्ण शृंगार रूप',
     sortOrder: 1,
     uploadedAt: '2025-10-20T10:00:00.000Z'
@@ -280,20 +281,107 @@ export const SEED_IMAGES: GalleryImage[] = [
 
 export const SEED_MEMBERS: Member[] = [
   {
+    id: 'comm-5',
+    memberNumber: 'DM-2026-001',
+    fullName: 'Tilak Ashok Gaikwad',
+    fullNameMarathi: 'श्री. तिलक अशोक गायकवाड',
+    phone: '7796052953',
+    email: 'tilak.gaikwad@gmail.com',
+    address: 'दुर्गा चौक, चोप',
+    cityVillage: 'चोप',
+    pincode: '441207',
+    memberType: 'individual',
+    category: 'patron',
+    status: 'active',
+    joinedDate: '2024-01-01',
+    annualDueAmount: 1500,
+    photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80',
+    createdAt: '2024-01-01T10:00:00.000Z',
+    updatedAt: '2026-08-01T10:00:00.000Z'
+  },
+  {
+    id: 'comm-2',
+    memberNumber: 'DM-2026-002',
+    fullName: 'Vinod Fagoji Dongarwar',
+    fullNameMarathi: 'श्री. विनोद फागोजी डोंगरवार',
+    phone: '9699174824',
+    address: 'दुर्गा चौक, चोप',
+    cityVillage: 'चोप',
+    pincode: '441207',
+    memberType: 'individual',
+    category: 'life',
+    status: 'active',
+    joinedDate: '2024-01-01',
+    annualDueAmount: 1500,
+    createdAt: '2024-01-01T10:00:00.000Z',
+    updatedAt: '2026-08-01T10:00:00.000Z'
+  },
+  {
+    id: 'comm-3',
+    memberNumber: 'DM-2026-003',
+    fullName: 'Vishwa Mansaram Bavane',
+    fullNameMarathi: 'श्री. विश्वा मन्सारामजी बावणे',
+    phone: '8459063045',
+    address: 'दुर्गा चौक, चोप',
+    cityVillage: 'चोप',
+    pincode: '441207',
+    memberType: 'individual',
+    category: 'life',
+    status: 'active',
+    joinedDate: '2024-01-01',
+    annualDueAmount: 1500,
+    createdAt: '2024-01-01T10:00:00.000Z',
+    updatedAt: '2026-08-01T10:00:00.000Z'
+  },
+  {
+    id: 'comm-4',
+    memberNumber: 'DM-2026-004',
+    fullName: 'Shekhar Ishwar Kuthe',
+    fullNameMarathi: 'श्री. शेखर ईश्वर कुथे',
+    phone: '9607396623',
+    address: 'दुर्गा चौक, चोप',
+    cityVillage: 'चोप',
+    pincode: '441207',
+    memberType: 'individual',
+    category: 'life',
+    status: 'active',
+    joinedDate: '2024-01-01',
+    annualDueAmount: 1500,
+    createdAt: '2024-01-01T10:00:00.000Z',
+    updatedAt: '2026-08-01T10:00:00.000Z'
+  },
+  {
+    id: 'comm-1',
+    memberNumber: 'DM-2026-005',
+    fullName: 'Shubham Govindaravji Nagpurkar',
+    fullNameMarathi: 'श्री. शुभम गोविंदरावजी नागपूरकर',
+    phone: '8999161652',
+    address: 'दुर्गा चौक, चोप',
+    cityVillage: 'चोप',
+    pincode: '441207',
+    memberType: 'individual',
+    category: 'life',
+    status: 'active',
+    joinedDate: '2024-01-01',
+    annualDueAmount: 1500,
+    createdAt: '2024-01-01T10:00:00.000Z',
+    updatedAt: '2026-08-01T10:00:00.000Z'
+  },
+  {
     id: 'mem-1001',
     uid: 'demo-user-1',
     memberNumber: 'DM-2024-001',
-    fullName: 'Shri.Shubham Govindaravji Nagpurkar ',
-    fullNameMarathi: 'श्री. शुभम गोविंदरावजी नागपूरकर',
-    phone: '8999161652',
+    fullName: 'Ramesh Pandurang Deshmukh',
+    fullNameMarathi: 'श्री. रमेश पांडुरंग देशमुख',
+    phone: '9822112233',
     email: 'ramesh.deshmukh@gmail.com',
-    address: 'फ्लॅट क्र. ४०२, दुर्गा चौक,चोप/कोरेगाव',
+    address: 'फ्लॅट क्र. ४०२, दुर्गा चौक, चोप',
     cityVillage: 'चोप',
     pincode: '441207',
     memberType: 'family',
     category: 'life',
     status: 'active',
-    joinedDate: '2026-10-11',
+    joinedDate: '2020-04-01',
     annualDueAmount: 1500,
     familyMembers: [
       { name: 'सौ. रेखा रमेश देशमुख', relation: 'पत्नी', age: 48 },
@@ -360,6 +448,20 @@ export const SEED_MEMBERS: Member[] = [
 ];
 
 export const SEED_DONATIONS: Donation[] = [
+  {
+    id: 'don-tilak-501',
+    amount: 501,
+    donorName: 'TILAK',
+    donorPhone: '7769053298',
+    donorCity: 'पुणे',
+    donationType: 'annadaan',
+    donationTypeMarathi: 'अन्नदान व महाप्रसाद देणगी',
+    paymentMethod: 'upi_qr',
+    paymentStatus: 'pending',
+    receiptNumber: 'DM/2026-27/DON-18929',
+    isAnonymous: false,
+    createdAt: new Date().toISOString()
+  },
   {
     id: 'don-5001',
     amount: 11000,
@@ -497,6 +599,82 @@ export const SEED_SPONSORS: Sponsor[] = [
   }
 ];
 
+export const SEED_EXPENSES: Expense[] = [
+  {
+    id: 'exp-1',
+    financialYear: '2026-27',
+    title: 'भव्य मंडप उभारणी व सजावट ॲडव्हान्स',
+    titleMarathi: 'भव्य मंडप उभारणी व सजावट ॲडव्हान्स',
+    category: 'mandap_decoration',
+    categoryMarathi: 'मंडप व सजावट',
+    amount: 15000,
+    date: '2026-08-05T11:00:00.000Z',
+    payeeName: 'माऊली मंडप डेकोरेटर्स, चोप',
+    payeePhone: '+91 98220 11223',
+    paymentMethod: 'bank_transfer',
+    voucherNumber: 'VOUCH-2026/01',
+    billReceiptUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=500&auto=format&fit=crop&q=80',
+    recordedBy: 'admin',
+    recordedByName: 'खजिनदार',
+    notes: 'मंडप स्ट्रक्चर, मॅटिंग व स्टेज बॅकड्रॉप कामाचा पहिला हप्ता',
+    createdAt: '2026-08-05T11:00:00.000Z'
+  },
+  {
+    id: 'exp-2',
+    financialYear: '2026-27',
+    title: 'विद्युत रोषणाई व डिजिटल साऊंड सिस्टीम',
+    titleMarathi: 'विद्युत रोषणाई व डिजिटल साऊंड सिस्टीम',
+    category: 'sound_lighting',
+    categoryMarathi: 'विद्युत रोषणाई व ध्वनी',
+    amount: 8500,
+    date: '2026-08-08T15:30:00.000Z',
+    payeeName: 'स्वरझंकार साऊंड्स & लाईट्स',
+    payeePhone: '+91 94230 44556',
+    paymentMethod: 'upi',
+    voucherNumber: 'VOUCH-2026/02',
+    recordedBy: 'admin',
+    recordedByName: 'खजिनदार',
+    notes: '१० दिवस माईक, स्पीकर व मुख्य प्रवेशद्वार कमान रोषणाई',
+    createdAt: '2026-08-08T15:30:00.000Z'
+  },
+  {
+    id: 'exp-3',
+    financialYear: '2026-27',
+    title: 'महाप्रसाद अन्नदान किराणा धान्य साहित्य',
+    titleMarathi: 'महाप्रसाद अन्नदान किराणा धान्य साहित्य',
+    category: 'mahaprasad_food',
+    categoryMarathi: 'महाप्रसाद व अन्नदान',
+    amount: 6200,
+    date: '2026-08-12T10:00:00.000Z',
+    payeeName: 'श्री स्वामी समर्थ किराणा स्टोअर्स',
+    payeePhone: '+91 88881 23456',
+    paymentMethod: 'cash',
+    voucherNumber: 'VOUCH-2026/03',
+    recordedBy: 'admin',
+    recordedByName: 'खजिनदार',
+    notes: 'तूप, साखर, रवा, तेल व डाळींचे आगाऊ खरेदी बिल',
+    createdAt: '2026-08-12T10:00:00.000Z'
+  },
+  {
+    id: 'exp-4',
+    financialYear: '2026-27',
+    title: 'डिजिटल पावती पुस्तके व आमंत्रण पत्रिका छपाई',
+    titleMarathi: 'डिजिटल पावती पुस्तके व आमंत्रण पत्रिका छपाई',
+    category: 'printing_advertising',
+    categoryMarathi: 'छपाई व प्रसिद्धी',
+    amount: 2800,
+    date: '2026-08-14T17:00:00.000Z',
+    payeeName: 'गणराज प्रिंटर्स, गडचिरोली',
+    payeePhone: '+91 77760 99887',
+    paymentMethod: 'upi',
+    voucherNumber: 'VOUCH-2026/04',
+    recordedBy: 'admin',
+    recordedByName: 'खजिनदार',
+    notes: '५०० पत्रिका व मंडळ फ्लेक्स बॅनर छपाई',
+    createdAt: '2026-08-14T17:00:00.000Z'
+  }
+];
+
 // If executed directly (via Node / tsx CLI), display seed summary
 if (typeof window === 'undefined') {
   console.log('\n====================================================');
@@ -510,6 +688,7 @@ if (typeof window === 'undefined') {
   console.log(`✅ नोंदणीकृत सभासद (Members):              ${SEED_MEMBERS.length}`);
   console.log(`✅ देणगी नोंदी (Donations):                 ${SEED_DONATIONS.length}`);
   console.log(`✅ वर्गणी नोंदी (Member Payments):          ${SEED_PAYMENTS.length}`);
+  console.log(`✅ खर्च नोंदी (Expenses):                   ${SEED_EXPENSES.length}`);
   console.log(`✅ प्रायोजक (Sponsors):                     ${SEED_SPONSORS.length}`);
   console.log('====================================================');
   console.log('✨ सर्व डेटा यशस्वीरीत्या व्हॅलिडेट झाला आहे! (All seed data verified)');

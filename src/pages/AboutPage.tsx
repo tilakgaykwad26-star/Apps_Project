@@ -164,7 +164,14 @@ export const AboutPage: React.FC = () => {
                 flexShrink: 0,
                 border: '2px solid var(--color-gold-500)'
               }}>
-                <img src={item.photoUrl} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img
+                  src={item.photoUrl}
+                  alt={item.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80';
+                  }}
+                />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-maroon-800)', lineHeight: 1.3, marginBottom: '2px', wordBreak: 'break-word' }}>

@@ -8,6 +8,7 @@ import { Donation } from '../types/donation';
 import { MemberPayment, MemberFinancialSummary, DuesStatus } from '../types/payment';
 import { Sponsor } from '../types/sponsor';
 import { AuditLog, AuditActionType } from '../types/audit';
+import { Expense } from '../types/expense';
 import {
   SEED_COMMITTEE,
   SEED_EVENTS,
@@ -17,7 +18,8 @@ import {
   SEED_MEMBERS,
   SEED_DONATIONS,
   SEED_PAYMENTS,
-  SEED_SPONSORS
+  SEED_SPONSORS,
+  SEED_EXPENSES
 } from '../utils/seedData';
 import { MANDAL_CONFIG } from '../config/constants';
 import { getFinancialYear } from '../utils/dateUtils';
@@ -29,15 +31,129 @@ export interface FinancialMetrics {
   totalDonations: number;
   totalSubscriptions: number;
   totalOther: number;
+  totalExpenses: number;
+  netBalance: number;
   pendingDues: number;
   totalMembersCount: number;
   paidMembersCount: number;
   pendingMembersCount: number;
   successfulTxnCount: number;
   failedTxnCount: number;
-  categoryBreakdown: Record<string, number>;
+  donorCount: number;
+  expenseTxnCount: number;
+  categoryBreakdown: any;
+  expenseCategoryBreakdown: Record<string, number>;
   monthlyTrend: { month: string; amount: number }[];
+  monthlyExpenseTrend: { month: string; amount: number }[];
 }
+
+export interface FestivalConfig {
+  titleMarathi: string;
+  titleEnglish: string;
+  datesMarathi: string;
+  datesEnglish: string;
+  greeting: string;
+  descriptionMarathi: string;
+  descriptionEnglish: string;
+  sliderIntervalSeconds?: number;
+}
+
+export interface HeroSlideItem {
+  id: string;
+  badge: string;
+  titleMarathi: string;
+  titleEnglish: string;
+  highlightMarathi: string;
+  highlightEnglish: string;
+  descMarathi: string;
+  descEnglish: string;
+  gradient: string;
+  btn1TextMarathi: string;
+  btn1ActionKey: string;
+  btn2TextMarathi: string;
+  btn2ActionKey: string;
+  accentColor: string;
+  imageUrl?: string;
+  bannerMode?: 'standard' | 'full_photo';
+}
+
+export const DEFAULT_FESTIVAL_CONFIG: FestivalConfig = {
+  titleMarathi: 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
+  titleEnglish: 'Sarvajanik Bal Durga Utsav Mandal',
+  datesMarathi: '११ ऑक्टोबर ते २२ ऑक्टोबर २०२६',
+  datesEnglish: '11 October to 22 October 2026',
+  greeting: '॥ उदो बोला उदो अंबाबाई माउलीचा हो ॥',
+  descriptionMarathi: '*भक्तीचा उत्सव, संस्कृतीचा अभिमान आणि सेवाभावाची नवी दिशा — चला, नवरात्रोत्सव एकत्र साजरा करूया!*',
+  descriptionEnglish: 'A celebration of devotion, cultural pride, and community service. Join the grand festivities!',
+  sliderIntervalSeconds: 5
+};
+
+export const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
+  {
+    id: 'slide-1',
+    badge: '॥ उदो बोला उदो अंबाबाई माउलीचा हो ॥',
+    titleMarathi: 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
+    titleEnglish: 'Sarvajanik Bal Durga Utsav Mandal',
+    highlightMarathi: '११ ऑक्टोबर ते २२ ऑक्टोबर २०२६ (शारदीय नवरात्रोत्सव)',
+    highlightEnglish: '11 Oct to 22 Oct 2026 (Grand Celebration)',
+    descMarathi: '*भक्तीचा उत्सव, संस्कृतीचा अभिमान आणि सेवाभावाची नवी दिशा — चला, नवरात्रोत्सव एकत्र साजरा करूया!*',
+    descEnglish: 'A celebration of devotion, cultural pride, and community service. Join the grand festivities!',
+    gradient: 'radial-gradient(circle at top right, #6F1616 0%, #871C1C 45%, #3D0505 100%)',
+    btn1TextMarathi: '❤️ देवीचे दर्शन व देणगी',
+    btn1ActionKey: 'donate',
+    btn2TextMarathi: '📅 आजचे विशेष कार्यक्रम',
+    btn2ActionKey: 'events',
+    accentColor: '#FFB300'
+  },
+  {
+    id: 'slide-2',
+    badge: '॥ अखंड अन्नदान सेवा ॥',
+    titleMarathi: 'दैनिक महाप्रसाद व अन्नदान वितरण',
+    titleEnglish: 'Daily Mahaprasad & Community Kitchen',
+    highlightMarathi: 'दररोज दुपारी १२:०० व सायं. ०७:३० वाजता',
+    highlightEnglish: 'Everyday 12:00 PM & 07:30 PM',
+    descMarathi: 'हजारो भाविकांसाठी शुद्ध सात्विक महाप्रसाद भोजन व्यवस्था. आपल्या शुभप्रसंगी अन्नदान सेवेत सहभाग नोंदवा.',
+    descEnglish: 'Pure and hygienic community feast served to thousands of devotees daily. Contribute to Annadaan.',
+    gradient: 'radial-gradient(circle at top right, #8C2205 0%, #A02808 45%, #420A00 100%)',
+    btn1TextMarathi: '🍛 महाप्रसाद देणगी नोंदवा',
+    btn1ActionKey: 'donate',
+    btn2TextMarathi: 'ℹ️ मंडळाची संपूर्ण माहिती',
+    btn2ActionKey: 'about',
+    accentColor: '#FF7043'
+  },
+  {
+    id: 'slide-3',
+    badge: '॥ सर्वमंगल मांगल्ये शिवे सर्वार्थ साधिके ॥',
+    titleMarathi: 'भव्य १०८ सुवर्ण दिव्यांची महाआरती',
+    titleEnglish: 'Grand 108 Deepotsav & Maha Aarti',
+    highlightMarathi: 'दररोज रात्री ०८:०० वाजता महाआरती व दांडिया',
+    highlightEnglish: 'Every night 8:00 PM with Traditional Dhol-Tasha',
+    descMarathi: 'दीपमाळांच्या मंगल प्रकाशात आणि पारंपरिक वाद्यांच्या गजरात संपन्न होणारा नयनरम्य महाआरती व दांडिया सोहळा.',
+    descEnglish: 'Mesmerizing evening Aarti illuminated by 108 lamps, accompanied by rhythmic drums and devotional bliss.',
+    gradient: 'radial-gradient(circle at top right, #5A0B2C 0%, #78103A 45%, #300316 100%)',
+    btn1TextMarathi: '📸 उत्सव फोटो दालन पहा',
+    btn1ActionKey: 'gallery',
+    btn2TextMarathi: '📅 सर्व कार्यक्रम वेळापत्रक',
+    btn2ActionKey: 'events',
+    accentColor: '#F06292'
+  },
+  {
+    id: 'slide-4',
+    badge: '॥ डिजिटल दुर्गा मंडळ ॥',
+    titleMarathi: 'स्मार्ट सभासद ओळखपत्र व ऑनलाईन वर्गणी',
+    titleEnglish: 'Digital Smart Member ID Card & Portal',
+    highlightMarathi: 'झटपट ओळखपत्र डाऊनलोड व SMS/WhatsApp पावती',
+    highlightEnglish: 'Instant Digital ID & Automated Online Receipts',
+    descMarathi: 'मंडळाचे अधिकृत सभासद व्हा, वार्षिक वर्गणी ऑनलाईन भरा आणि आपले डिजिटल ओळखपत्र घरबसल्या मिळवा.',
+    descEnglish: 'Register as an official Mandal member, view your smart ID card and manage subscriptions effortlessly.',
+    gradient: 'radial-gradient(circle at top right, #0C3E42 0%, #135A5E 45%, #052224 100%)',
+    btn1TextMarathi: '🪪 सभासद पोर्टल व ओळखपत्र',
+    btn1ActionKey: 'members',
+    btn2TextMarathi: '📞 मंडळाशी संपर्क साधा',
+    btn2ActionKey: 'contact',
+    accentColor: '#26A69A'
+  }
+];
 
 interface MandalContextType {
   events: MandalEvent[];
@@ -48,13 +164,23 @@ interface MandalContextType {
   members: Member[];
   donations: Donation[];
   payments: MemberPayment[];
+  expenses: Expense[];
   sponsors: Sponsor[];
   auditLogs: AuditLog[];
   activeSponsors: Sponsor[];
+  festivalConfig: FestivalConfig;
+  heroSlides: HeroSlideItem[];
 
   // CRUD Operations
   addDonation: (donation: Omit<Donation, 'id' | 'createdAt' | 'receiptNumber'>) => Promise<Donation>;
+  updateDonation: (id: string, data: Partial<Donation>) => Promise<void>;
+  deleteDonation: (id: string) => Promise<void>;
   addMemberPayment: (payment: Omit<MemberPayment, 'id' | 'createdAt' | 'receiptNumber'>) => Promise<MemberPayment>;
+  updateMemberPayment: (id: string, data: Partial<MemberPayment>) => Promise<void>;
+  deleteMemberPayment: (id: string) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<Expense>;
+  updateExpense: (id: string, data: Partial<Expense>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   addEvent: (event: Omit<MandalEvent, 'id' | 'createdAt' | 'updatedAt' | 'rsvpCount'>) => Promise<void>;
   updateEvent: (id: string, data: Partial<MandalEvent>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
@@ -67,6 +193,7 @@ interface MandalContextType {
 
   addAlbum: (album: Omit<GalleryAlbum, 'id' | 'createdAt' | 'imageCount'>) => Promise<void>;
   addImage: (image: Omit<GalleryImage, 'id' | 'uploadedAt'>) => Promise<void>;
+  deleteImage: (id: string, albumId: string) => Promise<void>;
   deleteAlbum: (id: string) => Promise<void>;
 
   addMember: (member: Omit<Member, 'id' | 'createdAt' | 'updatedAt' | 'memberNumber'>) => Promise<Member>;
@@ -80,6 +207,10 @@ interface MandalContextType {
   addCommitteeMember: (item: Omit<CommitteeMember, 'id'>) => Promise<void>;
   updateCommitteeMember: (id: string, data: Partial<CommitteeMember>) => Promise<void>;
   deleteCommitteeMember: (id: string) => Promise<void>;
+  resetCommitteeToDefaults: () => Promise<void>;
+
+  updateFestivalConfig: (data: Partial<FestivalConfig>) => Promise<void>;
+  updateHeroSlide: (id: string, data: Partial<HeroSlideItem>) => Promise<void>;
 
   getFinancialMetrics: (fy?: string) => FinancialMetrics;
   getMemberSummary: (memberId: string, fy?: string) => MemberFinancialSummary;
@@ -90,7 +221,7 @@ const MandalContext = createContext<MandalContextType | undefined>(undefined);
 export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
 
-  // Helper to safely parse localStorage (BUG 3 fix: prevent crash on corrupt data)
+  // Helper to safely parse localStorage
   function safeLocalParse<T>(key: string, fallback: T): T {
     try {
       const saved = localStorage.getItem(key);
@@ -102,29 +233,109 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }
 
+  function parseCommittee(): CommitteeMember[] {
+    const loaded = safeLocalParse<CommitteeMember[]>('dm_committee', SEED_COMMITTEE);
+    if (!Array.isArray(loaded) || loaded.length === 0) return SEED_COMMITTEE;
+    return loaded.map((c) => {
+      const seedMatch = SEED_COMMITTEE.find((s) => s.id === c.id);
+      // If photo is missing or contains old broken/dark unsplash link, upgrade to clean seed photo
+      if (!c.photoUrl || c.photoUrl.includes('ibb.co') || c.photoUrl.includes('photo-1519085360753-af0119f7cbe7') || c.photoUrl.includes('photo-1500648767791-00dcc994a43e?w=300')) {
+        return seedMatch ? { ...c, photoUrl: seedMatch.photoUrl } : c;
+      }
+      return c;
+    });
+  }
+
+  function parseEvents(): MandalEvent[] {
+    const loaded = safeLocalParse<MandalEvent[]>('dm_events', SEED_EVENTS);
+    if (!Array.isArray(loaded) || loaded.length === 0) return SEED_EVENTS;
+    return loaded.map((e) => {
+      const seedMatch = SEED_EVENTS.find((s) => s.id === e.id);
+      if (!e.coverImageUrl || e.coverImageUrl.includes('photo-1567157577867-05ccb1388e66')) {
+        return seedMatch ? { ...e, coverImageUrl: seedMatch.coverImageUrl } : e;
+      }
+      return e;
+    });
+  }
+
+  function parseAlbums(): GalleryAlbum[] {
+    const loaded = safeLocalParse<GalleryAlbum[]>('dm_albums', SEED_ALBUMS);
+    if (!Array.isArray(loaded) || loaded.length === 0) return SEED_ALBUMS;
+    return loaded.map((a) => {
+      const seedMatch = SEED_ALBUMS.find((s) => s.id === a.id);
+      if (!a.coverImageUrl || a.coverImageUrl.includes('photo-1567157577867-05ccb1388e66')) {
+        return seedMatch ? { ...a, coverImageUrl: seedMatch.coverImageUrl } : a;
+      }
+      return a;
+    });
+  }
+
+  function parseImages(): GalleryImage[] {
+    const loaded = safeLocalParse<GalleryImage[]>('dm_images', SEED_IMAGES);
+    if (!Array.isArray(loaded) || loaded.length === 0) return SEED_IMAGES;
+    return loaded.map((img) => {
+      const seedMatch = SEED_IMAGES.find((s) => s.id === img.id);
+      if (!img.imageUrl || img.imageUrl.includes('photo-1567157577867-05ccb1388e66')) {
+        return seedMatch ? { ...img, imageUrl: seedMatch.imageUrl, thumbnailUrl: seedMatch.thumbnailUrl } : img;
+      }
+      return img;
+    });
+  }
+
+  function parseDonations(): Donation[] {
+    const loaded = safeLocalParse<Donation[]>('dm_donations', SEED_DONATIONS);
+    if (!Array.isArray(loaded) || loaded.length === 0) return SEED_DONATIONS;
+    const hasTilak = loaded.some((d) => d.donorPhone === '7769053298' || d.donorName === 'TILAK');
+    if (!hasTilak) {
+      const tilakSeed = SEED_DONATIONS.find((d) => d.donorName === 'TILAK');
+      if (tilakSeed) return [tilakSeed, ...loaded];
+    }
+    return loaded;
+  }
+
   // State with LocalStorage Persistence
-  const [events, setEvents] = useState<MandalEvent[]>(() => safeLocalParse('dm_events', SEED_EVENTS));
+  const [events, setEvents] = useState<MandalEvent[]>(() => parseEvents());
   const [notices, setNotices] = useState<MandalNotice[]>(() => safeLocalParse('dm_notices', SEED_NOTICES));
-  const [albums, setAlbums] = useState<GalleryAlbum[]>(() => safeLocalParse('dm_albums', SEED_ALBUMS));
-  const [images, setImages] = useState<GalleryImage[]>(() => safeLocalParse('dm_images', SEED_IMAGES));
-  const [committee, setCommittee] = useState<CommitteeMember[]>(() => safeLocalParse('dm_committee', SEED_COMMITTEE));
+  const [albums, setAlbums] = useState<GalleryAlbum[]>(() => parseAlbums());
+  const [images, setImages] = useState<GalleryImage[]>(() => parseImages());
+  const [committee, setCommittee] = useState<CommitteeMember[]>(() => parseCommittee());
   const [members, setMembers] = useState<Member[]>(() => safeLocalParse('dm_members', SEED_MEMBERS));
-  const [donations, setDonations] = useState<Donation[]>(() => safeLocalParse('dm_donations', SEED_DONATIONS));
+  const [donations, setDonations] = useState<Donation[]>(() => parseDonations());
   const [payments, setPayments] = useState<MemberPayment[]>(() => safeLocalParse('dm_payments', SEED_PAYMENTS));
+  const [expenses, setExpenses] = useState<Expense[]>(() => safeLocalParse('dm_expenses', SEED_EXPENSES));
   const [sponsors, setSponsors] = useState<Sponsor[]>(() => safeLocalParse('dm_sponsors', SEED_SPONSORS));
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => safeLocalParse('dm_audit_logs', []));
+  const [festivalConfig, setFestivalConfig] = useState<FestivalConfig>(() => safeLocalParse('dm_festival_config', DEFAULT_FESTIVAL_CONFIG));
+  const [heroSlides, setHeroSlides] = useState<HeroSlideItem[]>(() => safeLocalParse('dm_hero_slides', DEFAULT_HERO_SLIDES));
+
+  function safeLocalSet(key: string, data: unknown) {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (err) {
+      console.warn(`[MandalContext] Could not save "${key}" to localStorage:`, err);
+      try {
+        localStorage.removeItem('dm_audit_logs');
+        localStorage.setItem(key, JSON.stringify(data));
+      } catch (err2) {
+        console.error(`[MandalContext] Critical storage error for "${key}":`, err2);
+      }
+    }
+  }
 
   // Sync to local storage
-  useEffect(() => { localStorage.setItem('dm_events', JSON.stringify(events)); }, [events]);
-  useEffect(() => { localStorage.setItem('dm_notices', JSON.stringify(notices)); }, [notices]);
-  useEffect(() => { localStorage.setItem('dm_albums', JSON.stringify(albums)); }, [albums]);
-  useEffect(() => { localStorage.setItem('dm_images', JSON.stringify(images)); }, [images]);
-  useEffect(() => { localStorage.setItem('dm_committee', JSON.stringify(committee)); }, [committee]);
-  useEffect(() => { localStorage.setItem('dm_members', JSON.stringify(members)); }, [members]);
-  useEffect(() => { localStorage.setItem('dm_donations', JSON.stringify(donations)); }, [donations]);
-  useEffect(() => { localStorage.setItem('dm_payments', JSON.stringify(payments)); }, [payments]);
-  useEffect(() => { localStorage.setItem('dm_sponsors', JSON.stringify(sponsors)); }, [sponsors]);
-  useEffect(() => { localStorage.setItem('dm_audit_logs', JSON.stringify(auditLogs)); }, [auditLogs]);
+  useEffect(() => { safeLocalSet('dm_events', events); }, [events]);
+  useEffect(() => { safeLocalSet('dm_notices', notices); }, [notices]);
+  useEffect(() => { safeLocalSet('dm_albums', albums); }, [albums]);
+  useEffect(() => { safeLocalSet('dm_images', images); }, [images]);
+  useEffect(() => { safeLocalSet('dm_committee', committee); }, [committee]);
+  useEffect(() => { safeLocalSet('dm_members', members); }, [members]);
+  useEffect(() => { safeLocalSet('dm_donations', donations); }, [donations]);
+  useEffect(() => { safeLocalSet('dm_payments', payments); }, [payments]);
+  useEffect(() => { safeLocalSet('dm_expenses', expenses); }, [expenses]);
+  useEffect(() => { safeLocalSet('dm_sponsors', sponsors); }, [sponsors]);
+  useEffect(() => { safeLocalSet('dm_audit_logs', auditLogs); }, [auditLogs]);
+  useEffect(() => { safeLocalSet('dm_festival_config', festivalConfig); }, [festivalConfig]);
+  useEffect(() => { safeLocalSet('dm_hero_slides', heroSlides); }, [heroSlides]);
 
   // Record Audit Log Helper
   const logAction = useCallback((action: AuditActionType, targetCollection: string, targetId: string, details: Record<string, any>) => {
@@ -166,6 +377,14 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newDonation;
   };
 
+  const updateDonation = async (id: string, data: Partial<Donation>) => {
+    setDonations((prev) => prev.map((d) => (d.id === id ? { ...d, ...data } : d)));
+  };
+
+  const deleteDonation = async (id: string) => {
+    setDonations((prev) => prev.filter((d) => d.id !== id));
+  };
+
   const addMemberPayment = async (input: Omit<MemberPayment, 'id' | 'createdAt' | 'receiptNumber'>): Promise<MemberPayment> => {
     const fy = input.financialYear || getFinancialYear();
     // BUG 4 fix: use Date.now() to prevent receipt number collisions on deletion
@@ -180,6 +399,40 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setPayments((prev) => [newPayment, ...prev]);
     logAction('payment_record', 'payments', newPayment.id, { amount: newPayment.amount, memberId: newPayment.memberId });
     return newPayment;
+  };
+
+  const updateMemberPayment = async (id: string, data: Partial<MemberPayment>) => {
+    setPayments((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
+    logAction('payment_record' as any, 'payments', id, { action: 'update', data });
+  };
+
+  const deleteMemberPayment = async (id: string) => {
+    setPayments((prev) => prev.filter((p) => p.id !== id));
+    logAction('payment_record' as any, 'payments', id, { action: 'delete' });
+  };
+
+  const addExpense = async (input: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense> => {
+    const fy = input.financialYear || getFinancialYear();
+    const count = expenses.length + 1;
+    const voucherNumber = input.voucherNumber || `VOUCH-${fy.split('-')[0]}/${String(count).padStart(2, '0')}`;
+    const newExpense: Expense = {
+      ...input,
+      id: 'exp_' + Date.now(),
+      voucherNumber,
+      createdAt: new Date().toISOString()
+    };
+
+    setExpenses((prev) => [newExpense, ...prev]);
+    logAction('donation_record' as any, 'expenses', newExpense.id, { amount: newExpense.amount, title: newExpense.title });
+    return newExpense;
+  };
+
+  const updateExpense = async (id: string, data: Partial<Expense>) => {
+    setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e)));
+  };
+
+  const deleteExpense = async (id: string) => {
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
   };
 
   const addEvent = async (input: Omit<MandalEvent, 'id' | 'createdAt' | 'updatedAt' | 'rsvpCount'>) => {
@@ -256,6 +509,12 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAlbums((prev) => prev.map((a) => (a.id === input.albumId ? { ...a, imageCount: a.imageCount + 1 } : a)));
   };
 
+  const deleteImage = async (id: string, albumId: string) => {
+    setImages((prev) => prev.filter((i) => i.id !== id));
+    setAlbums((prev) => prev.map((a) => (a.id === albumId ? { ...a, imageCount: Math.max(0, a.imageCount - 1) } : a)));
+    logAction('gallery_delete', 'gallery_images', id, { albumId });
+  };
+
   const deleteAlbum = async (id: string) => {
     setAlbums((prev) => prev.filter((a) => a.id !== id));
     setImages((prev) => prev.filter((i) => i.albumId !== id));
@@ -320,22 +579,43 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCommittee((prev) => prev.filter((c) => c.id !== id));
   };
 
+  const resetCommitteeToDefaults = async () => {
+    setCommittee(SEED_COMMITTEE);
+    safeLocalSet('dm_committee', SEED_COMMITTEE);
+  };
+
+  const updateFestivalConfig = async (data: Partial<FestivalConfig>) => {
+    setFestivalConfig((prev) => ({ ...prev, ...data }));
+    logAction('settings_update', 'festival_config', 'main', data);
+  };
+
+  const updateHeroSlide = async (id: string, data: Partial<HeroSlideItem>) => {
+    setHeroSlides((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s)));
+    logAction('settings_update', 'hero_slide', id, data);
+  };
+
   // Financial Calculations
   const getMemberSummary = (memberId: string, fy: string = MANDAL_CONFIG.currentFinancialYear): MemberFinancialSummary => {
     const member = members.find((m) => m.id === memberId);
     const annualDue = member ? member.annualDueAmount || MANDAL_CONFIG.annualSubscriptionFee : MANDAL_CONFIG.annualSubscriptionFee;
     
     const memberPayments = payments.filter(
-      (p) => p.memberId === memberId && p.financialYear === fy && p.paymentStatus === 'successful'
+      (p) => (p.memberId === memberId || (member && p.memberPhone && member.phone && p.memberPhone.replace(/\D/g, '').slice(-10) === member.phone.replace(/\D/g, '').slice(-10))) && p.financialYear === fy
     );
     
-    const totalPaid = memberPayments.reduce((acc, curr) => acc + curr.amount, 0);
-    const remainingDue = Math.max(0, annualDue - totalPaid);
+    const successfulPayments = memberPayments.filter((p) => p.paymentStatus === 'successful');
+    const pendingPayments = memberPayments.filter((p) => p.paymentStatus === 'pending');
+
+    const totalPaid = successfulPayments.reduce((acc, curr) => acc + curr.amount, 0);
+    const pendingPaid = pendingPayments.reduce((acc, curr) => acc + curr.amount, 0);
+    const remainingDue = Math.max(0, annualDue - totalPaid - pendingPaid);
 
     let status: DuesStatus = 'pending';
     if (totalPaid >= annualDue) {
       status = 'paid';
-    } else if (totalPaid > 0) {
+    } else if (totalPaid + pendingPaid >= annualDue) {
+      status = 'pending_verification' as DuesStatus;
+    } else if (totalPaid > 0 || pendingPaid > 0) {
       status = 'partial';
     }
 
@@ -346,6 +626,7 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       financialYear: fy,
       totalAnnualDue: annualDue,
       totalPaid,
+      pendingPaid,
       remainingDue,
       status,
       lastPaymentDate: lastPayment?.createdAt,
@@ -354,7 +635,6 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const getFinancialMetrics = (fy: string = MANDAL_CONFIG.currentFinancialYear): FinancialMetrics => {
-    // BUG 9 fix: also filter donations by financial year (April to March)
     const [fyStartYear] = fy.split('-').map(Number);
     const fyStart = new Date(fyStartYear, 3, 1); // April 1
     const fyEnd = new Date(fyStartYear + 1, 2, 31, 23, 59, 59); // March 31
@@ -365,31 +645,28 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return date >= fyStart && date <= fyEnd;
     });
     const fyPayments = payments.filter((p) => p.financialYear === fy && p.paymentStatus === 'successful');
+    const fyExpenses = expenses.filter((e) => (e.financialYear === fy || getFinancialYear(new Date(e.date || e.createdAt)) === fy));
 
     const totalDonations = fyDonations.reduce((acc, curr) => acc + curr.amount, 0);
     const totalSubscriptions = fyPayments.reduce((acc, curr) => acc + curr.amount, 0);
     const totalCollection = totalDonations + totalSubscriptions;
+    const totalExpenses = fyExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const netBalance = totalCollection - totalExpenses;
 
-    let paidMembersCount = 0;
-    let pendingMembersCount = 0;
-    let pendingDues = 0;
+    const annualFee = MANDAL_CONFIG.annualSubscriptionFee || 1500;
+    const activeMembers = members.filter((m) => m.status === 'active');
+    const pendingDues = members.reduce((acc, m) => acc + getMemberSummary(m.id, fy).remainingDue, 0);
 
-    members.forEach((m) => {
-      const summary = getMemberSummary(m.id, fy);
-      if (summary.status === 'paid') {
-        paidMembersCount++;
-      } else {
-        pendingMembersCount++;
-        pendingDues += summary.remainingDue;
-      }
-    });
+    const paidMemberIds = new Set(fyPayments.map((p) => p.memberId));
+    const paidMembersCount = activeMembers.filter((m) => paidMemberIds.has(m.id)).length;
+    const pendingMembersCount = Math.max(0, activeMembers.length - paidMembersCount);
 
     const categoryBreakdown: Record<string, number> = {
       'वार्षिक वर्गणी (Subscriptions)': totalSubscriptions,
       'अन्नदान व महाप्रसाद': 0,
       'महाआरती देणगी': 0,
       'विशेष उत्सव प्रायोजकत्व': 0,
-      'सर्वसाधारण देणगी': 0,
+      'सर्वसाधारण देणगी': 0
     };
 
     fyDonations.forEach((d) => {
@@ -399,21 +676,60 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       else categoryBreakdown['सर्वसाधारण देणगी'] += d.amount;
     });
 
-    // BUG 10 fix: compute real monthly trend from actual payment + donation data
+    const expenseCategoryBreakdown: Record<string, number> = {
+      'मंडप व सजावट': 0,
+      'विद्युत रोषणाई व ध्वनी': 0,
+      'महाप्रसाद व अन्नदान': 0,
+      'पूजा व होम-हवन': 0,
+      'छपाई व प्रसिद्धी': 0,
+      'सांस्कृतिक व बक्षीस': 0,
+      'इतर प्रशासकीय खर्च': 0
+    };
+
+    fyExpenses.forEach((e) => {
+      if (e.category === 'mandap_decoration') expenseCategoryBreakdown['मंडप व सजावट'] += e.amount;
+      else if (e.category === 'sound_lighting') expenseCategoryBreakdown['विद्युत रोषणाई व ध्वनी'] += e.amount;
+      else if (e.category === 'mahaprasad_food') expenseCategoryBreakdown['महाप्रसाद व अन्नदान'] += e.amount;
+      else if (e.category === 'puja_havan') expenseCategoryBreakdown['पूजा व होम-हवन'] += e.amount;
+      else if (e.category === 'printing_advertising') expenseCategoryBreakdown['छपाई व प्रसिद्धी'] += e.amount;
+      else if (e.category === 'cultural_prizes') expenseCategoryBreakdown['सांस्कृतिक व बक्षीस'] += e.amount;
+      else expenseCategoryBreakdown['इतर प्रशासकीय खर्च'] += e.amount;
+    });
+
     const MARATHI_MONTH_NAMES = ['जानेवारी','फेब्रुवारी','मार्च','एप्रिल','मे','जून','जुलै','ऑगस्ट','सप्टेंबर','ऑक्टोबर','नोव्हेंबर','डिसेंबर'];
-    // Financial year runs April (month 3) to March (month 2) of next year
-    const fyMonthOrder = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2]; // Apr=3 ... Mar=2
+    const fyMonthOrder = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
     const monthlyMap: Record<number, number> = {};
-    fyMonthOrder.forEach((m) => { monthlyMap[m] = 0; });
+    const monthlyExpenseMap: Record<number, number> = {};
+    fyMonthOrder.forEach((m) => {
+      monthlyMap[m] = 0;
+      monthlyExpenseMap[m] = 0;
+    });
 
     [...fyDonations, ...fyPayments].forEach((txn) => {
       const month = new Date(txn.createdAt).getMonth();
       if (month in monthlyMap) monthlyMap[month] += txn.amount;
     });
 
+    fyExpenses.forEach((exp) => {
+      const month = new Date(exp.date || exp.createdAt).getMonth();
+      if (month in monthlyExpenseMap) monthlyExpenseMap[month] += exp.amount;
+    });
+
     const monthlyTrend = fyMonthOrder.map((m) => ({
       month: MARATHI_MONTH_NAMES[m],
       amount: monthlyMap[m]
+    }));
+
+    const monthlyExpenseTrend = fyMonthOrder.map((m) => ({
+      month: MARATHI_MONTH_NAMES[m],
+      amount: monthlyExpenseMap[m]
+    }));
+
+    const categoryBreakdownList = Object.entries(categoryBreakdown).map(([label, amount]) => ({
+      category: label,
+      label,
+      amount,
+      count: label === 'वार्षिक वर्गणी (Subscriptions)' ? fyPayments.length : fyDonations.length
     }));
 
     return {
@@ -422,14 +738,20 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       totalDonations,
       totalSubscriptions,
       totalOther: 0,
+      totalExpenses,
+      netBalance,
       pendingDues,
       totalMembersCount: members.length,
       paidMembersCount,
       pendingMembersCount,
       successfulTxnCount: fyDonations.length + fyPayments.length,
       failedTxnCount: 0,
-      categoryBreakdown,
-      monthlyTrend
+      donorCount: fyDonations.length + paidMembersCount,
+      expenseTxnCount: fyExpenses.length,
+      categoryBreakdown: categoryBreakdownList,
+      expenseCategoryBreakdown,
+      monthlyTrend,
+      monthlyExpenseTrend
     };
   };
 
@@ -444,11 +766,19 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         members,
         donations,
         payments,
+        expenses,
         sponsors,
         auditLogs,
         activeSponsors,
         addDonation,
+        updateDonation,
+        deleteDonation,
         addMemberPayment,
+        updateMemberPayment,
+        deleteMemberPayment,
+        addExpense,
+        updateExpense,
+        deleteExpense,
         addEvent,
         updateEvent,
         deleteEvent,
@@ -458,6 +788,7 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteNotice,
         addAlbum,
         addImage,
+        deleteImage,
         deleteAlbum,
         addMember,
         updateMember,
@@ -468,6 +799,11 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addCommitteeMember,
         updateCommitteeMember,
         deleteCommitteeMember,
+        resetCommitteeToDefaults,
+        festivalConfig,
+        heroSlides,
+        updateFestivalConfig,
+        updateHeroSlide,
         getFinancialMetrics,
         getMemberSummary
       }}

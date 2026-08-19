@@ -33,6 +33,7 @@ export interface MemberFinancialSummary {
   financialYear: string;
   totalAnnualDue: number;
   totalPaid: number;
+  pendingPaid?: number;
   remainingDue: number;
   status: DuesStatus;
   lastPaymentDate?: string;

@@ -11,8 +11,9 @@ export const MANDAL_CONFIG = {
   phonePrimary: '+91 89991 61652',
   phoneSecondary: '+91 84590 63045',
   email: 'durgamandal.chop@gmail.com',
-  officialUpiId: 'durgamandalchop@upi',
-  googleMapsUrl: 'https://maps.google.com/?q=Chop+Gadchiroli',
+  officialUpiId: 'shekharkuthe30@okhdfcbank',
+  upiAccountName: 'Chandrashekhar Kuthe',
+  googleMapsUrl: 'https://maps.google.com/?q=Chop',
   socialMedia: {
     instagram: 'https://www.instagram.com/ig_aaibhawani_official?igsh=OGRjcjRsbmZwNWI2',
     facebook: 'https://facebook.com/durgamandalchop',
@@ -27,7 +28,7 @@ export const MANDAL_CONFIG = {
     ifscCode: 'SBIN0001234',
     micrCode: '441002015',
   },
-  annualSubscriptionFee: 500, // ₹500 standard annual fee per member
+  annualSubscriptionFee: 1500, // ₹1500 standard annual fee per member
   currentFestival: {
     titleMarathi: 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
     datesMarathi: '11 ऑक्टोबर ते 22 ऑक्टोबर 2026',

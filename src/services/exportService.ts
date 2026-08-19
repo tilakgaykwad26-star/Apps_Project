@@ -1,11 +1,11 @@
 import { Donation } from '../types/donation';
 import { MemberPayment } from '../types/payment';
 import { Member } from '../types/auth';
+import { Expense } from '../types/expense';
 import { formatIndianDate } from '../utils/dateUtils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { MANDAL_CONFIG } from '../config/constants';
-import { formatINR } from '../utils/currencyUtils';
 
 // Export to CSV
 export function exportToCSV(data: any[], filename: string, headers: { label: string; key: string }[]) {
@@ -30,7 +30,6 @@ export function exportToCSV(data: any[], filename: string, headers: { label: str
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  // BUG 12 fix: revoke the object URL to prevent memory leak
   URL.revokeObjectURL(url);
 }
 
@@ -42,7 +41,7 @@ export function exportDonationsCSV(donations: Donation[]) {
     { label: 'मोबाईल (Phone)', key: 'donorPhone' },
     { label: 'पॅन नंबर (PAN)', key: 'donorPan' },
     { label: 'प्रकार (Type)', key: 'donationTypeMarathi' },
-    { label: 'रक्कम ₹ (Amount)', key: 'amount' },
+    { label: 'रक्कम (Amount in Rs)', key: 'amount' },
     { label: 'पेमेंट प्रकार (Mode)', key: 'paymentMethod' },
     { label: 'स्थिती (Status)', key: 'paymentStatus' },
   ];
@@ -77,11 +76,35 @@ export function exportMembersCSV(members: Member[]) {
   exportToCSV(formatted, 'Durga_Mandal_Members_Directory', headers);
 }
 
+export function exportExpensesCSV(expenses: Expense[]) {
+  const headers = [
+    { label: 'व्हाउचर क्र. (Voucher No)', key: 'voucherNumber' },
+    { label: 'दिनांक (Date)', key: 'formattedDate' },
+    { label: 'खर्चाचे शीर्षक (Title)', key: 'title' },
+    { label: 'प्रवर्ग (Category)', key: 'categoryMarathi' },
+    { label: 'देयक व्यक्ती/फर्म (Payee)', key: 'payeeName' },
+    { label: 'रक्कम (Amount in Rs)', key: 'amount' },
+    { label: 'पेमेंट पद्धत (Mode)', key: 'paymentMethod' },
+    { label: 'नोंदणीकर्ता (Recorded By)', key: 'recordedByName' },
+    { label: 'शेरा (Notes)', key: 'notes' },
+  ];
+
+  const formatted = expenses.map((e) => ({
+    ...e,
+    formattedDate: formatIndianDate(e.date || e.createdAt),
+    categoryMarathi: e.categoryMarathi || e.category,
+    recordedByName: e.recordedByName || e.recordedBy
+  }));
+
+  exportToCSV(formatted, 'Durga_Mandal_Expenses_Report', headers);
+}
+
 export function generateFinancialBalanceSheetPDF(
   fy: string,
   donations: Donation[],
   payments: MemberPayment[],
-  metrics: any
+  metrics: any,
+  expenses: Expense[] = []
 ): jsPDF {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -89,70 +112,79 @@ export function generateFinancialBalanceSheetPDF(
     format: 'a4'
   });
 
-  // Header
+  const formatPdfAmount = (amt: number) => `Rs. ${(amt || 0).toLocaleString('en-IN')}`;
+
+  // 1. Header
   doc.setTextColor(135, 28, 28);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text('SHREE DURGA MANDAL CHOP, GADCHIROLI', 105, 18, { align: 'center' });
 
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 100, 100);
   doc.text(`Reg. No: ${MANDAL_CONFIG.registrationNumber} | Estd: ${MANDAL_CONFIG.establishedYear}`, 105, 24, { align: 'center' });
 
-  doc.setFontSize(12);
+  doc.setFontSize(11.5);
   doc.setTextColor(33, 33, 33);
   doc.setFont('helvetica', 'bold');
-  doc.text(`ANNUAL FINANCIAL STATEMENT & COLLECTION AUDIT (FY ${fy})`, 105, 33, { align: 'center' });
+  doc.text(`ANNUAL AUDITED BALANCE SHEET & INCOME-EXPENSE STATEMENT (FY ${fy})`, 105, 32, { align: 'center' });
 
   doc.setDrawColor(135, 28, 28);
   doc.setLineWidth(0.8);
-  doc.line(14, 38, 196, 38);
+  doc.line(14, 36, 196, 36);
 
-  // Financial Metrics Summary Box
+  // 2. High-Level Summary Box
+  const netSurplus = (metrics.totalCollection || 0) - (metrics.totalExpenses || 0);
   (doc as any).autoTable({
-    startY: 42,
+    startY: 40,
     head: [['Financial Summary Head', 'Details / Count', 'Amount (INR)']],
     body: [
-      ['Total Annual Membership Subscriptions (वार्षिक वर्गणी)', `${metrics.paidMembersCount} Members Paid`, formatINR(metrics.totalSubscriptions)],
-      ['Total Donations & Seva Collections (देणगी संकलन)', `${donations.length} Contributions`, formatINR(metrics.totalDonations)],
-      ['Grand Total Collections (एकूण जमा)', '100% Verified Bank/Cash', formatINR(metrics.totalCollection)],
-      ['Total Outstanding Membership Dues (बाकी वर्गणी)', `${metrics.pendingMembersCount} Pending Members`, formatINR(metrics.pendingDues)],
+      ['Total Annual Membership Subscriptions (Income)', `${metrics.paidMembersCount || 0} Members Paid`, formatPdfAmount(metrics.totalSubscriptions || 0)],
+      ['Total Donations & Seva Collections (Income)', `${donations.length} Contributions`, formatPdfAmount(metrics.totalDonations || 0)],
+      ['GROSS TOTAL INCOME / COLLECTIONS (A)', '100% Verified Bank / Cash', formatPdfAmount(metrics.totalCollection || 0)],
+      ['TOTAL FESTIVAL & MANDAL EXPENSES (B)', `${expenses.length} Vouchers Cleared`, formatPdfAmount(metrics.totalExpenses || 0)],
+      ['NET SURPLUS / CLOSING BALANCE (A - B)', netSurplus >= 0 ? 'Surplus Reserve' : 'Deficit', formatPdfAmount(netSurplus)],
+      ['Total Outstanding Membership Dues', `${metrics.pendingMembersCount || 0} Pending Members`, formatPdfAmount(metrics.pendingDues || 0)],
     ],
     theme: 'striped',
     headStyles: { fillColor: [135, 28, 28], textColor: 255 },
-    styles: { font: 'helvetica', fontSize: 9 }
-  });
-
-  // Recent Collections Table
-  const recentTxns = [
-    ...donations.map((d) => [formatIndianDate(d.createdAt), d.receiptNumber, d.isAnonymous ? 'Anonymous' : d.donorName, d.donationType.toUpperCase(), formatINR(d.amount)]),
-    ...payments.map((p) => [formatIndianDate(p.createdAt), p.receiptNumber, p.memberName, 'ANNUAL SUB', formatINR(p.amount)])
-  ].slice(0, 15);
-
-  (doc as any).autoTable({
-    startY: (doc as any).lastAutoTable.finalY + 10,
-    head: [['Date', 'Receipt No', 'Name / Contributor', 'Type', 'Amount']],
-    body: recentTxns,
-    theme: 'grid',
-    headStyles: { fillColor: [70, 70, 70], textColor: 255 },
     styles: { font: 'helvetica', fontSize: 8.5 }
   });
 
-  // Signatures
-  const finalY = (doc as any).lastAutoTable.finalY + 25;
-  doc.setFontSize(9);
+  // 3. Itemized Expenses Summary Table
+  const expenseRows = expenses.map((e) => [
+    formatIndianDate(e.date || e.createdAt),
+    e.voucherNumber || 'N/A',
+    e.title || 'Expense',
+    e.payeeName || 'Vendor',
+    e.paymentMethod.toUpperCase(),
+    formatPdfAmount(e.amount)
+  ]);
+
+  (doc as any).autoTable({
+    startY: (doc as any).lastAutoTable.finalY + 8,
+    head: [['Date', 'Voucher No', 'Expense Description', 'Payee / Vendor', 'Mode', 'Amount']],
+    body: expenseRows.length > 0 ? expenseRows : [['-', '-', 'No expenses recorded for this period', '-', '-', 'Rs. 0']],
+    theme: 'grid',
+    headStyles: { fillColor: [70, 70, 70], textColor: 255 },
+    styles: { font: 'helvetica', fontSize: 8 }
+  });
+
+  // 4. Signatures
+  const finalY = Math.min(270, (doc as any).lastAutoTable.finalY + 18);
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(40, 40, 40);
 
   doc.line(20, finalY, 65, finalY);
-  doc.text('Hon. Treasurer / खजिनदार', 42.5, finalY + 5, { align: 'center' });
+  doc.text('Hon. Treasurer', 42.5, finalY + 5, { align: 'center' });
 
   doc.line(80, finalY, 125, finalY);
-  doc.text('Hon. Secretary / सचिव', 102.5, finalY + 5, { align: 'center' });
+  doc.text('Hon. Secretary', 102.5, finalY + 5, { align: 'center' });
 
   doc.line(140, finalY, 185, finalY);
-  doc.text('Hon. President / अध्यक्ष', 162.5, finalY + 5, { align: 'center' });
+  doc.text('Hon. President', 162.5, finalY + 5, { align: 'center' });
 
   return doc;
 }
