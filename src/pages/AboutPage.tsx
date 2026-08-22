@@ -15,15 +15,39 @@ import {
   PhoneCall,
   Mail,
   ExternalLink,
-  Users
+  Users,
+  UserCheck,
+  ChevronRight,
+  Search,
+  User
 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
+import { Modal } from '../components/common/Modal';
 
 export const AboutPage: React.FC = () => {
   const { language, t, isMarathi } = useLanguage();
-  const { committee } = useMandal();
+  const { committee, members } = useMandal();
   const { showSuccess } = useNotification();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Member Directory Modal state
+  const [isMemberListOpen, setIsMemberListOpen] = useState(false);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'annual' | 'life' | 'patron'>('all');
+
+  const filteredMembers = members.filter((m) => {
+    const searchLower = memberSearch.toLowerCase().trim();
+    const nameMatch =
+      (m.fullNameMarathi || '').toLowerCase().includes(searchLower) ||
+      (m.fullName || '').toLowerCase().includes(searchLower) ||
+      (m.phone || '').includes(searchLower) ||
+      (m.cityVillage || '').toLowerCase().includes(searchLower) ||
+      (m.memberNumber || '').toLowerCase().includes(searchLower);
+
+    const categoryMatch = categoryFilter === 'all' || m.category === categoryFilter;
+
+    return nameMatch && categoryMatch;
+  });
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -63,36 +87,77 @@ export const AboutPage: React.FC = () => {
       {/* 2. Key Trust Badges */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
         gap: 'var(--space-md)'
       }}>
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '14px', borderLeft: '4px solid var(--color-maroon-700)' }}>
-          <div style={{ padding: '10px', borderRadius: '50%', backgroundColor: 'var(--color-maroon-50)', color: 'var(--color-maroon-700)' }}>
-            <Award size={24} />
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '10px', borderLeft: '4px solid var(--color-maroon-700)', padding: '12px 14px' }}>
+          <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--color-maroon-50)', color: 'var(--color-maroon-700)', flexShrink: 0 }}>
+            <Award size={22} />
           </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{t.about.regNumber}</div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-maroon-800)' }}>{MANDAL_CONFIG.registrationNumber}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '14px', borderLeft: '4px solid var(--color-saffron-500)' }}>
-          <div style={{ padding: '10px', borderRadius: '50%', backgroundColor: 'var(--color-saffron-50)', color: 'var(--color-saffron-600)' }}>
-            <Building size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{t.about.established}</div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-text-primary)' }}>इ.स. {toMarathiDigits(MANDAL_CONFIG.establishedYear)} (४0 वर्षे पूर्ण)</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.about.regNumber}</div>
+            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: 'var(--color-maroon-800)', whiteSpace: 'nowrap', lineHeight: 1.3, marginTop: '2px', letterSpacing: '-0.3px' }}>
+              {MANDAL_CONFIG.registrationNumber}
+            </div>
           </div>
         </div>
 
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '14px', borderLeft: '4px solid var(--color-gold-500)' }}>
-          <div style={{ padding: '10px', borderRadius: '50%', backgroundColor: 'var(--color-gold-50)', color: 'var(--color-gold-700)' }}>
-            <Users size={24} />
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '10px', borderLeft: '4px solid var(--color-saffron-500)', padding: '12px 14px' }}>
+          <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--color-saffron-50)', color: 'var(--color-saffron-600)', flexShrink: 0 }}>
+            <Building size={22} />
           </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>सक्रिय सभासद व स्वयंसेवक</div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-text-primary)' }}>५००+ कुटुंबे जोडलेली</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.about.established}</div>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+              इ.स. {toMarathiDigits(MANDAL_CONFIG.establishedYear)} (४० वर्षे पूर्ण)
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '10px', borderLeft: '4px solid var(--color-gold-500)', padding: '12px 14px' }}>
+          <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--color-gold-50)', color: 'var(--color-gold-700)', flexShrink: 0 }}>
+            <Users size={22} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>सक्रिय सभासद व स्वयंसेवक</div>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+              ५००+ कुटुंबे जोडलेली
+            </div>
+          </div>
+        </div>
+
+        {/* 4. NEW CARD: Member List Button / Tile */}
+        <div
+          className="card"
+          onClick={() => setIsMemberListOpen(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            borderLeft: '4px solid #16a34a',
+            backgroundColor: '#f0fdf4',
+            cursor: 'pointer',
+            padding: '12px 14px',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 8px rgba(22, 163, 74, 0.12)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(22, 163, 74, 0.22)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(22, 163, 74, 0.12)';
+          }}
+        >
+          <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: '#dcfce7', color: '#15803d', flexShrink: 0 }}>
+            <UserCheck size={22} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>मंडळ सभासद सूची</div>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#14532d', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              सभासद यादी पहा ({members.length}) <ChevronRight size={15} style={{ flexShrink: 0 }} />
+            </div>
           </div>
         </div>
       </div>
@@ -232,6 +297,109 @@ export const AboutPage: React.FC = () => {
           </a>
         </div>
       </div>
+
+      {/* MEMBER DIRECTORY MODAL (सभासद यादी मोडल) */}
+      <Modal
+        isOpen={isMemberListOpen}
+        onClose={() => setIsMemberListOpen(false)}
+        title={`दुर्गा मंडळ — अधिकृत सभासद सूची (${filteredMembers.length}/${members.length})`}
+        maxWidth="820px"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          {/* Search & Filter Bar */}
+          {/* Search Bar */}
+          <div style={{ position: 'relative', width: '100%' }}>
+            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="नाव, मोबाईल, शहर किंवा सभासद क्र. शोधा..."
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+              style={{ paddingLeft: '38px', minHeight: '42px', fontSize: '0.92rem', width: '100%' }}
+            />
+          </div>
+
+          {/* Member List Cards Grid */}
+          <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {filteredMembers.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--color-text-muted)' }}>
+                कोणतेही सभासद सापडले नाहीत. कृपया सर्च फिल्टर बदलून पहा.
+              </div>
+            ) : (
+              filteredMembers.map((m) => (
+                <div
+                  key={m.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    padding: '12px 16px',
+                    backgroundColor: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-lg)',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--color-maroon-100)',
+                      color: 'var(--color-maroon-800)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '1.1rem',
+                      flexShrink: 0,
+                      border: '1.5px solid var(--color-maroon-300)'
+                    }}>
+                      {m.photoUrl ? (
+                        <img src={m.photoUrl} alt={m.fullName} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        (m.fullNameMarathi || m.fullName || 'S').charAt(0)
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.98rem', color: 'var(--color-maroon-900)' }}>
+                        {m.fullNameMarathi || m.fullName}
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        📍 {m.cityVillage || 'चोप / गडचिरोली'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {m.phone && (
+                      <a
+                        href={`tel:${m.phone.replace(/[^0-9+]/g, '')}`}
+                        className="btn btn-sm btn-primary"
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '6px 12px',
+                          borderRadius: '16px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          textDecoration: 'none',
+                          backgroundColor: 'var(--color-maroon-700)'
+                        }}
+                      >
+                        <PhoneCall size={13} />
+                        <span>कॉल करा</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

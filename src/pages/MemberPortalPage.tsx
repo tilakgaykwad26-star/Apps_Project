@@ -26,7 +26,10 @@ import {
   Calendar,
   Sparkles,
   Award,
-  Settings
+  Settings,
+  Search,
+  UserCheck,
+  PhoneCall
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
 import { UpiQrPaymentModal } from '../components/common/UpiQrPaymentModal';
@@ -34,8 +37,13 @@ import { UpiQrPaymentModal } from '../components/common/UpiQrPaymentModal';
 export const MemberPortalPage: React.FC = () => {
   const { language, t, isMarathi } = useLanguage();
   const { user, memberProfile, isAuthenticated, loginWithPhone, sendOtp, logout, updateMemberProfile } = useAuth();
-  const { addMember, addMemberPayment, getMemberSummary, payments } = useMandal();
+  const { addMember, addMemberPayment, deleteMemberPayment, getMemberSummary, payments, members } = useMandal();
   const { showSuccess, showError } = useNotification();
+
+  // Mode: portal vs directory list
+  const [mainTab, setMainTab] = useState<'portal' | 'directory'>('portal');
+  const [directorySearch, setDirectorySearch] = useState('');
+  const [directoryCategoryFilter, setDirectoryCategoryFilter] = useState<'all' | 'annual' | 'life' | 'patron'>('all');
 
   // Mode: login, register, profile
   const [activeMode, setActiveMode] = useState<'profile' | 'login' | 'register'>(
@@ -170,9 +178,12 @@ export const MemberPortalPage: React.FC = () => {
   };
 
   const handleOpenPayModal = () => {
-    const due = memberSummary?.remainingDue !== undefined && memberSummary.remainingDue > 0
-      ? memberSummary.remainingDue
-      : (memberSummary?.totalAnnualDue || MANDAL_CONFIG.annualSubscriptionFee);
+    if (!memberSummary) return;
+    if (memberSummary.status === 'paid' || memberSummary.remainingDue <= 0) {
+      showError('आपली या आर्थिक वर्षासाठीची वर्गणी (₹1,500) आधीच पूर्ण भरली आहे! दुप्पट वर्गणी नोंदवण्याची गरज नाही.');
+      return;
+    }
+    const due = memberSummary.remainingDue > 0 ? memberSummary.remainingDue : MANDAL_CONFIG.annualSubscriptionFee;
     setCustomPayAmount(String(due));
     setIsPayModalOpen(true);
   };
@@ -180,9 +191,19 @@ export const MemberPortalPage: React.FC = () => {
   const handlePaySubscription = () => {
     if (!memberProfile || !memberSummary) return;
 
+    if (memberSummary.status === 'paid' || memberSummary.remainingDue <= 0) {
+      showError('आपली या आर्थिक वर्षासाठीची वर्गणी (₹1,500) आधीच पूर्ण भरली आहे!');
+      return;
+    }
+
     const amountToPay = parseInt(customPayAmount, 10);
     if (!amountToPay || amountToPay <= 0) {
       showError('कृपया वैध रक्कम प्रविष्ट करा (किमान ₹ 1).');
+      return;
+    }
+
+    if (amountToPay > memberSummary.remainingDue) {
+      showError(`वर्गणी रक्कम बाकी रक्कमेपेक्षा (${formatINR(memberSummary.remainingDue)}) जास्त असू शकत नाही.`);
       return;
     }
 
@@ -193,7 +214,17 @@ export const MemberPortalPage: React.FC = () => {
 
   const handleUpiQrSuccess = async (paymentId: string, orderId: string, utr?: string) => {
     if (!memberProfile || !memberSummary) return;
-    const amountToPay = parseInt(customPayAmount, 10) || (memberSummary.remainingDue || MANDAL_CONFIG.annualSubscriptionFee);
+
+    if (memberSummary.status === 'paid' || memberSummary.remainingDue <= 0) {
+      showError('आपली या आर्थिक वर्षासाठीची वर्गणी (₹1,500) आधीच पूर्ण भरली आहे!');
+      setIsUpiQrModalOpen(false);
+      return;
+    }
+
+    const amountToPay = Math.min(
+      memberSummary.remainingDue || MANDAL_CONFIG.annualSubscriptionFee,
+      parseInt(customPayAmount, 10) || (memberSummary.remainingDue || MANDAL_CONFIG.annualSubscriptionFee)
+    );
 
     try {
       const savedPayment = await addMemberPayment({
@@ -226,6 +257,20 @@ export const MemberPortalPage: React.FC = () => {
     sendSubscriptionReceiptWhatsApp(payment);
   };
 
+  const filteredDirectoryMembers = members.filter((m) => {
+    const searchLower = directorySearch.toLowerCase().trim();
+    const nameMatch =
+      (m.fullNameMarathi || '').toLowerCase().includes(searchLower) ||
+      (m.fullName || '').toLowerCase().includes(searchLower) ||
+      (m.phone || '').includes(searchLower) ||
+      (m.cityVillage || '').toLowerCase().includes(searchLower) ||
+      (m.memberNumber || '').toLowerCase().includes(searchLower);
+
+    const categoryMatch = directoryCategoryFilter === 'all' || m.category === directoryCategoryFilter;
+
+    return nameMatch && categoryMatch;
+  });
+
   return (
     <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2xl)', paddingTop: 'var(--space-lg)' }}>
       {/* 1. Header */}
@@ -235,12 +280,144 @@ export const MemberPortalPage: React.FC = () => {
         </h1>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem' }}>
           {language === 'en'
-            ? 'Access your digital ID card, manage annual subscription, and download official receipts.'
-            : 'आपले डिजिटल ओळखपत्र, वार्षिक वर्गणी जमा करण्याची सुविधा व अधिकृत पावती इतिहास'}
+            ? 'Access your digital ID card, manage annual subscription, and view official members list.'
+            : 'आपले डिजिटल ओळखपत्र, वार्षिक वर्गणी जमा करण्याची सुविधा व अधिकृत सभासद सूची'}
         </p>
       </div>
 
-      {/* 2. State: Authenticated Profile View */}
+      {/* Main View Switcher: Portal vs Directory */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+        <button
+          onClick={() => setMainTab('portal')}
+          className={`btn ${mainTab === 'portal' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ gap: '6px', padding: '8px 18px', fontWeight: 700 }}
+        >
+          <User size={18} />
+          <span>सभासद ओळखपत्र / लॉगिन</span>
+        </button>
+        <button
+          onClick={() => setMainTab('directory')}
+          className={`btn ${mainTab === 'directory' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ gap: '6px', padding: '8px 18px', fontWeight: 700, backgroundColor: mainTab === 'directory' ? '#16a34a' : undefined, borderColor: mainTab === 'directory' ? '#16a34a' : undefined }}
+        >
+          <UserCheck size={18} />
+          <span>मंडळ सभासद यादी ({members.length})</span>
+        </button>
+      </div>
+
+      {mainTab === 'directory' ? (
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          <h2 style={{ fontSize: '1.4rem', color: 'var(--color-maroon-800)', margin: 0 }}>
+            दुर्गा मंडळ — अधिकृत सभासद सूची ({filteredDirectoryMembers.length}/{members.length})
+          </h2>
+
+          {/* Search Bar */}
+          <div style={{ position: 'relative', width: '100%' }}>
+            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="नाव, मोबाईल, शहर किंवा सभासद क्र. शोधा..."
+              value={directorySearch}
+              onChange={(e) => setDirectorySearch(e.target.value)}
+              style={{ paddingLeft: '38px', minHeight: '42px', fontSize: '0.92rem', width: '100%' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+            {filteredDirectoryMembers.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--color-text-muted)' }}>
+                कोणतेही सभासद सापडले नाहीत. कृपया सर्च बदलून पहा.
+              </div>
+            ) : (
+              filteredDirectoryMembers.map((m) => (
+                <div
+                  key={m.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    padding: '12px 16px',
+                    backgroundColor: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-lg)',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--color-maroon-100)',
+                      color: 'var(--color-maroon-800)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '1.1rem',
+                      flexShrink: 0,
+                      border: '1.5px solid var(--color-maroon-300)'
+                    }}>
+                      {m.photoUrl ? (
+                        <img src={m.photoUrl} alt={m.fullName} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        (m.fullNameMarathi || m.fullName || 'S').charAt(0)
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.98rem', color: 'var(--color-maroon-900)' }}>
+                        {m.fullNameMarathi || m.fullName}
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        📍 {m.cityVillage || 'चोप / गडचिरोली'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        backgroundColor: m.category === 'patron' ? '#fef3c7' : m.category === 'life' ? '#e0f2fe' : '#f3f4f6',
+                        color: m.category === 'patron' ? '#b45309' : m.category === 'life' ? '#0369a1' : '#374151'
+                      }}
+                    >
+                      {m.category === 'patron' ? 'मानद आश्रयदाते' : m.category === 'life' ? 'आजीवन सभासद' : 'वार्षिक सभासद'}
+                    </span>
+
+                    {m.phone && (
+                      <a
+                        href={`tel:${m.phone.replace(/[^0-9+]/g, '')}`}
+                        className="btn btn-sm btn-primary"
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '6px 12px',
+                          borderRadius: '16px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          textDecoration: 'none',
+                          backgroundColor: 'var(--color-maroon-700)'
+                        }}
+                      >
+                        <PhoneCall size={13} />
+                        <span>कॉल करा</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 2. State: Authenticated Profile View */}
       {isAuthenticated && memberProfile && activeMode === 'profile' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
           {/* Member ID Card & Financial Status Grid */}
@@ -408,13 +585,15 @@ export const MemberPortalPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div style={{ padding: '8px 10px', backgroundColor: (memberSummary?.pendingPaid || 0) > 0 ? '#FEF3C7' : '#F1F8E9', borderRadius: 'var(--radius-sm)', border: (memberSummary?.pendingPaid || 0) > 0 ? '1px solid #FDE68A' : '1px solid #C8E6C9' }}>
-                  <div style={{ fontSize: '0.74rem', color: (memberSummary?.pendingPaid || 0) > 0 ? '#B45309' : '#2E7D32', fontWeight: 600 }}>
-                    २. जमा / प्रलंबित
+                <div style={{ padding: '8px 10px', backgroundColor: (memberSummary?.pendingPaid || 0) > 0 && memberSummary?.status !== 'paid' ? '#FEF3C7' : '#F1F8E9', borderRadius: 'var(--radius-sm)', border: (memberSummary?.pendingPaid || 0) > 0 && memberSummary?.status !== 'paid' ? '1px solid #FDE68A' : '1px solid #C8E6C9' }}>
+                  <div style={{ fontSize: '0.74rem', color: (memberSummary?.pendingPaid || 0) > 0 && memberSummary?.status !== 'paid' ? '#B45309' : '#2E7D32', fontWeight: 600 }}>
+                    २. जमा वर्गणी
                   </div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: (memberSummary?.pendingPaid || 0) > 0 ? '#D97706' : '#2E7D32', marginTop: '4px' }}>
-                    {formatINR((memberSummary?.totalPaid || 0) + (memberSummary?.pendingPaid || 0))}
-                    {(memberSummary?.pendingPaid || 0) > 0 && <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#B45309' }}>(पडताळणी प्रलंबित)</span>}
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: (memberSummary?.pendingPaid || 0) > 0 && memberSummary?.status !== 'paid' ? '#D97706' : '#2E7D32', marginTop: '4px' }}>
+                    {formatINR(memberSummary?.status === 'paid' ? (memberSummary?.totalPaid || memberSummary?.totalAnnualDue || 1500) : (memberSummary?.totalPaid || 0))}
+                    {(memberSummary?.pendingPaid || 0) > 0 && memberSummary?.status !== 'paid' && (
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#B45309' }}>(पडताळणी प्रलंबित: {formatINR(memberSummary?.pendingPaid || 0)})</span>
+                    )}
                   </div>
                 </div>
 
@@ -432,14 +611,14 @@ export const MemberPortalPage: React.FC = () => {
                   <div className="flex-between" style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
                     <span>वर्गणी जमा प्रगती (Progress)</span>
                     <span style={{ color: memberSummary.status === 'paid' ? '#2E7D32' : (memberSummary.pendingPaid || 0) > 0 ? '#D97706' : '#C62828', fontWeight: 700 }}>
-                      {Math.min(100, Math.round((((memberSummary.totalPaid || 0) + (memberSummary.pendingPaid || 0)) / memberSummary.totalAnnualDue) * 100))}% भरली
+                      {memberSummary.status === 'paid' ? 100 : Math.min(100, Math.round(((memberSummary.totalPaid || 0) / memberSummary.totalAnnualDue) * 100))}% भरली
                     </span>
                   </div>
                   <div style={{ height: '8px', width: '100%', backgroundColor: '#E0E0E0', borderRadius: '4px', overflow: 'hidden' }}>
                     <div
                       style={{
                         height: '100%',
-                        width: `${Math.min(100, Math.round((((memberSummary.totalPaid || 0) + (memberSummary.pendingPaid || 0)) / memberSummary.totalAnnualDue) * 100))}%`,
+                        width: `${memberSummary.status === 'paid' ? 100 : Math.min(100, Math.round(((memberSummary.totalPaid || 0) / memberSummary.totalAnnualDue) * 100))}%`,
                         backgroundColor: memberSummary.status === 'paid' ? '#4CAF50' : (memberSummary.pendingPaid || 0) > 0 ? '#F59E0B' : '#FF9800',
                         borderRadius: '4px',
                         transition: 'width 0.4s ease'
@@ -495,7 +674,7 @@ export const MemberPortalPage: React.FC = () => {
                     style={{ width: '100%', gap: '8px' }}
                   >
                     <CreditCard size={18} />
-                    <span>{t.member.paySubscriptionBtn} ({formatINR(memberSummary?.remainingDue || 500)})</span>
+                    <span>{t.member.paySubscriptionBtn} ({formatINR(memberSummary?.remainingDue || MANDAL_CONFIG.annualSubscriptionFee)})</span>
                   </button>
                 </div>
               )}
@@ -540,14 +719,6 @@ export const MemberPortalPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={handleOpenPayModal}
-                  className="btn btn-saffron btn-sm"
-                  style={{ gap: '6px', fontWeight: 700 }}
-                >
-                  <CreditCard size={15} />
-                  <span>आत्ताच वर्गणी जमा करा ({formatINR(memberSummary.remainingDue)})</span>
-                </button>
               </div>
             )}
 
@@ -899,6 +1070,34 @@ export const MemberPortalPage: React.FC = () => {
                   >
                     <span>👑 टिळक गायकवाड (Admin)</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await loginWithPhone('8999161652', '123456');
+                      showSuccess('👑 शुभम नागपूरकर (Super Admin) म्हणून लॉगिन झाले!');
+                      setActiveMode('profile');
+                    }}
+                    className="btn btn-primary btn-sm"
+                    style={{ fontSize: '0.78rem', padding: '6px 8px', justifyContent: 'flex-start', gap: '4px', backgroundColor: 'var(--color-maroon-800)', borderColor: 'var(--color-maroon-800)' }}
+                    title="8999161652"
+                  >
+                    <span>👑 शुभम नागपूरकर (Admin)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await loginWithPhone('9607396623', '123456');
+                      showSuccess('👑 शेखर कुथे (Super Admin) म्हणून लॉगिन झाले!');
+                      setActiveMode('profile');
+                    }}
+                    className="btn btn-primary btn-sm"
+                    style={{ fontSize: '0.78rem', padding: '6px 8px', justifyContent: 'flex-start', gap: '4px', backgroundColor: 'var(--color-maroon-800)', borderColor: 'var(--color-maroon-800)' }}
+                    title="9607396623"
+                  >
+                    <span>👑 शेखर कुथे (Admin)</span>
+                  </button>
                 </div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
                   टीप: वरील बटणावर क्लिक करून किंवा मोबाईल नंबरवर SMS OTP मागवून थेट प्रवेश करता येईल.
@@ -906,6 +1105,8 @@ export const MemberPortalPage: React.FC = () => {
               </div>
             </form>
         </div>
+      )}
+        </>
       )}
 
       {/* Subscription Payment Modal */}

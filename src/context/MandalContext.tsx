@@ -24,6 +24,13 @@ import {
 import { MANDAL_CONFIG } from '../config/constants';
 import { getFinancialYear } from '../utils/dateUtils';
 import { useAuth } from './AuthContext';
+import {
+  subscribeToCollection,
+  saveToFirestore,
+  deleteFromFirestore,
+  pushAllLocalDataToCloud,
+  COLLECTIONS
+} from '../services/firestoreSyncService';
 
 export interface FinancialMetrics {
   financialYear: string;
@@ -214,6 +221,26 @@ interface MandalContextType {
 
   getFinancialMetrics: (fy?: string) => FinancialMetrics;
   getMemberSummary: (memberId: string, fy?: string) => MemberFinancialSummary;
+  pushLocalDataToCloud: () => Promise<{ success: boolean; totalSynced: number; message: string }>;
+}
+
+export function sortMembers(list: Member[]): Member[] {
+  if (!Array.isArray(list)) return [];
+  return [...list].sort((a, b) => {
+    const numA = parseInt((a.memberNumber || '').replace(/\D/g, ''), 10) || 0;
+    const numB = parseInt((b.memberNumber || '').replace(/\D/g, ''), 10) || 0;
+    if (numA !== numB) return numA - numB;
+    return (a.memberNumber || '').localeCompare(b.memberNumber || '', undefined, { numeric: true });
+  });
+}
+
+export function sortDonations(list: Donation[]): Donation[] {
+  if (!Array.isArray(list)) return [];
+  return [...list].sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeB - timeA;
+  });
 }
 
 const MandalContext = createContext<MandalContextType | undefined>(undefined);
@@ -284,14 +311,51 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   function parseDonations(): Donation[] {
     const loaded = safeLocalParse<Donation[]>('dm_donations', SEED_DONATIONS);
-    if (!Array.isArray(loaded) || loaded.length === 0) return SEED_DONATIONS;
-    const hasTilak = loaded.some((d) => d.donorPhone === '7769053298' || d.donorName === 'TILAK');
-    if (!hasTilak) {
-      const tilakSeed = SEED_DONATIONS.find((d) => d.donorName === 'TILAK');
-      if (tilakSeed) return [tilakSeed, ...loaded];
-    }
-    return loaded;
+    if (!Array.isArray(loaded) || loaded.length === 0) return sortDonations(SEED_DONATIONS);
+    const cleaned = loaded.filter((d) => d.id !== 'don-tilak-501');
+    return sortDonations(cleaned);
   }
+
+  function parsePayments(): MemberPayment[] {
+    const loaded = safeLocalParse<MemberPayment[]>('dm_payments', SEED_PAYMENTS);
+    if (!Array.isArray(loaded)) return SEED_PAYMENTS;
+
+    const memberFYTotals: Record<string, number> = {};
+    const sanitized: MemberPayment[] = [];
+
+    for (const p of loaded) {
+      if (p.paymentType === 'annual_subscription') {
+        const phoneKey = p.memberPhone ? p.memberPhone.replace(/\D/g, '').slice(-10) : '';
+        const key = `${p.memberId || phoneKey}_${p.financialYear}`;
+        const currentTotal = memberFYTotals[key] || 0;
+
+        if (currentTotal >= 1500) {
+          continue; // Filter out duplicate test entries exceeding annual subscription limit
+        }
+
+        memberFYTotals[key] = currentTotal + p.amount;
+      }
+      sanitized.push(p);
+    }
+    return sanitized;
+  }
+
+  function parseMembers(): Member[] {
+    const loaded = safeLocalParse<Member[]>('dm_members', SEED_MEMBERS);
+    if (!Array.isArray(loaded) || loaded.length === 0) return sortMembers(SEED_MEMBERS);
+    const cleaned = loaded.filter((m) => m.id !== 'opiyhksdfjhkjs' && m.fullName !== 'opiyhksdfjhkjs');
+    if (cleaned.length === 0) return sortMembers(SEED_MEMBERS);
+
+    const merged = [...cleaned];
+    for (const seed of SEED_MEMBERS) {
+      if (!merged.some((m) => m.id === seed.id || (m.phone && seed.phone && m.phone.replace(/\D/g, '').slice(-10) === seed.phone.replace(/\D/g, '').slice(-10)))) {
+        merged.push(seed);
+      }
+    }
+    return sortMembers(merged);
+  }
+
+
 
   // State with LocalStorage Persistence
   const [events, setEvents] = useState<MandalEvent[]>(() => parseEvents());
@@ -299,9 +363,9 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [albums, setAlbums] = useState<GalleryAlbum[]>(() => parseAlbums());
   const [images, setImages] = useState<GalleryImage[]>(() => parseImages());
   const [committee, setCommittee] = useState<CommitteeMember[]>(() => parseCommittee());
-  const [members, setMembers] = useState<Member[]>(() => safeLocalParse('dm_members', SEED_MEMBERS));
+  const [members, setMembers] = useState<Member[]>(() => parseMembers());
   const [donations, setDonations] = useState<Donation[]>(() => parseDonations());
-  const [payments, setPayments] = useState<MemberPayment[]>(() => safeLocalParse('dm_payments', SEED_PAYMENTS));
+  const [payments, setPayments] = useState<MemberPayment[]>(() => parsePayments());
   const [expenses, setExpenses] = useState<Expense[]>(() => safeLocalParse('dm_expenses', SEED_EXPENSES));
   const [sponsors, setSponsors] = useState<Sponsor[]>(() => safeLocalParse('dm_sponsors', SEED_SPONSORS));
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => safeLocalParse('dm_audit_logs', []));
@@ -336,6 +400,45 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => { safeLocalSet('dm_audit_logs', auditLogs); }, [auditLogs]);
   useEffect(() => { safeLocalSet('dm_festival_config', festivalConfig); }, [festivalConfig]);
   useEffect(() => { safeLocalSet('dm_hero_slides', heroSlides); }, [heroSlides]);
+
+  // Real-time Firestore Subscriptions for PC-to-Mobile Live Sync
+  useEffect(() => {
+    const unsubDonations = subscribeToCollection<Donation>(COLLECTIONS.DONATIONS, (cloudItems) => {
+      if (cloudItems && cloudItems.length > 0) setDonations(sortDonations(cloudItems));
+    });
+    const unsubMembers = subscribeToCollection<Member>(COLLECTIONS.MEMBERS, (cloudItems) => {
+      if (cloudItems && cloudItems.length > 0) setMembers(sortMembers(cloudItems));
+    });
+    const unsubPayments = subscribeToCollection<MemberPayment>(COLLECTIONS.PAYMENTS, (cloudItems) => {
+      if (cloudItems && cloudItems.length > 0) setPayments(cloudItems);
+    });
+    const unsubExpenses = subscribeToCollection<Expense>(COLLECTIONS.EXPENSES, (cloudItems) => {
+      if (cloudItems && cloudItems.length > 0) setExpenses(cloudItems);
+    });
+    const unsubEvents = subscribeToCollection<MandalEvent>(COLLECTIONS.EVENTS, (cloudItems) => {
+      if (cloudItems && cloudItems.length > 0) setEvents(cloudItems);
+    });
+    const unsubNotices = subscribeToCollection<MandalNotice>(COLLECTIONS.NOTICES, (cloudItems) => {
+      if (cloudItems && cloudItems.length > 0) setNotices(cloudItems);
+    });
+    const unsubSponsors = subscribeToCollection<Sponsor>(COLLECTIONS.SPONSORS, (cloudItems) => {
+      if (cloudItems && cloudItems.length > 0) setSponsors(cloudItems);
+    });
+    const unsubCommittee = subscribeToCollection<CommitteeMember>(COLLECTIONS.COMMITTEE, (cloudItems) => {
+      if (cloudItems && cloudItems.length > 0) setCommittee(cloudItems);
+    });
+
+    return () => {
+      unsubDonations();
+      unsubMembers();
+      unsubPayments();
+      unsubExpenses();
+      unsubEvents();
+      unsubNotices();
+      unsubSponsors();
+      unsubCommittee();
+    };
+  }, []);
 
   // Record Audit Log Helper
   const logAction = useCallback((action: AuditActionType, targetCollection: string, targetId: string, details: Record<string, any>) => {
@@ -372,17 +475,21 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createdAt: new Date().toISOString()
     };
 
-    setDonations((prev) => [newDonation, ...prev]);
+    setDonations((prev) => sortDonations([newDonation, ...prev]));
     logAction('donation_record', 'donations', newDonation.id, { amount: newDonation.amount, receiptNumber });
+    saveToFirestore(COLLECTIONS.DONATIONS, newDonation);
     return newDonation;
   };
 
   const updateDonation = async (id: string, data: Partial<Donation>) => {
-    setDonations((prev) => prev.map((d) => (d.id === id ? { ...d, ...data } : d)));
+    setDonations((prev) => sortDonations(prev.map((d) => (d.id === id ? { ...d, ...data } : d))));
+    const target = donations.find((d) => d.id === id);
+    if (target) saveToFirestore(COLLECTIONS.DONATIONS, { ...target, ...data });
   };
 
   const deleteDonation = async (id: string) => {
-    setDonations((prev) => prev.filter((d) => d.id !== id));
+    setDonations((prev) => sortDonations(prev.filter((d) => d.id !== id)));
+    deleteFromFirestore(COLLECTIONS.DONATIONS, id);
   };
 
   const addMemberPayment = async (input: Omit<MemberPayment, 'id' | 'createdAt' | 'receiptNumber'>): Promise<MemberPayment> => {
@@ -398,17 +505,37 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setPayments((prev) => [newPayment, ...prev]);
     logAction('payment_record', 'payments', newPayment.id, { amount: newPayment.amount, memberId: newPayment.memberId });
+    saveToFirestore(COLLECTIONS.PAYMENTS, newPayment);
     return newPayment;
   };
 
   const updateMemberPayment = async (id: string, data: Partial<MemberPayment>) => {
     setPayments((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
     logAction('payment_record' as any, 'payments', id, { action: 'update', data });
+    const target = payments.find((p) => p.id === id);
+    if (target) saveToFirestore(COLLECTIONS.PAYMENTS, { ...target, ...data });
   };
 
   const deleteMemberPayment = async (id: string) => {
-    setPayments((prev) => prev.filter((p) => p.id !== id));
+    setPayments((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (!target) return prev.filter((p) => p.id !== id);
+
+      const phoneKey = target.memberPhone ? target.memberPhone.replace(/\D/g, '').slice(-10) : '';
+
+      return prev.filter((p) => {
+        if (p.id === id) return false;
+        if (p.paymentType === 'annual_subscription' && p.financialYear === target.financialYear) {
+          const matchMember =
+            (p.memberId && target.memberId && p.memberId === target.memberId) ||
+            (phoneKey && p.memberPhone && p.memberPhone.replace(/\D/g, '').slice(-10) === phoneKey);
+          if (matchMember) return false;
+        }
+        return true;
+      });
+    });
     logAction('payment_record' as any, 'payments', id, { action: 'delete' });
+    deleteFromFirestore(COLLECTIONS.PAYMENTS, id);
   };
 
   const addExpense = async (input: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense> => {
@@ -424,15 +551,19 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setExpenses((prev) => [newExpense, ...prev]);
     logAction('donation_record' as any, 'expenses', newExpense.id, { amount: newExpense.amount, title: newExpense.title });
+    saveToFirestore(COLLECTIONS.EXPENSES, newExpense);
     return newExpense;
   };
 
   const updateExpense = async (id: string, data: Partial<Expense>) => {
     setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e)));
+    const target = expenses.find((e) => e.id === id);
+    if (target) saveToFirestore(COLLECTIONS.EXPENSES, { ...target, ...data });
   };
 
   const deleteExpense = async (id: string) => {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
+    deleteFromFirestore(COLLECTIONS.EXPENSES, id);
   };
 
   const addEvent = async (input: Omit<MandalEvent, 'id' | 'createdAt' | 'updatedAt' | 'rsvpCount'>) => {
@@ -523,7 +654,15 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const addMember = async (input: Omit<Member, 'id' | 'createdAt' | 'updatedAt' | 'memberNumber'>): Promise<Member> => {
     const currentYear = new Date().getFullYear();
-    const count = members.length + 1;
+    const maxNum = members.reduce((max, m) => {
+      const match = (m.memberNumber || '').match(/\d+$/);
+      if (match) {
+        const val = parseInt(match[0], 10);
+        return val > max ? val : max;
+      }
+      return max;
+    }, 0);
+    const count = maxNum + 1;
     const memberNumber = `DM-${currentYear}-${String(count).padStart(3, '0')}`;
     const newMember: Member = {
       ...input,
@@ -532,19 +671,23 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    setMembers((prev) => [newMember, ...prev]);
+    setMembers((prev) => sortMembers([...prev, newMember]));
     logAction('member_create', 'members', newMember.id, { name: newMember.fullName, memberNumber });
+    saveToFirestore(COLLECTIONS.MEMBERS, newMember);
     return newMember;
   };
 
   const updateMember = async (id: string, data: Partial<Member>) => {
-    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, ...data, updatedAt: new Date().toISOString() } : m)));
+    setMembers((prev) => sortMembers(prev.map((m) => (m.id === id ? { ...m, ...data, updatedAt: new Date().toISOString() } : m))));
     logAction('member_update', 'members', id, data);
+    const target = members.find((m) => m.id === id);
+    if (target) saveToFirestore(COLLECTIONS.MEMBERS, { ...target, ...data });
   };
 
   const deleteMember = async (id: string) => {
-    setMembers((prev) => prev.filter((m) => m.id !== id));
+    setMembers((prev) => sortMembers(prev.filter((m) => m.id !== id)));
     logAction('member_delete', 'members', id, {});
+    deleteFromFirestore(COLLECTIONS.MEMBERS, id);
   };
 
   const addSponsor = async (input: Omit<Sponsor, 'id' | 'createdAt'>) => {
@@ -599,23 +742,41 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const member = members.find((m) => m.id === memberId);
     const annualDue = member ? member.annualDueAmount || MANDAL_CONFIG.annualSubscriptionFee : MANDAL_CONFIG.annualSubscriptionFee;
     
-    const memberPayments = payments.filter(
-      (p) => (p.memberId === memberId || (member && p.memberPhone && member.phone && p.memberPhone.replace(/\D/g, '').slice(-10) === member.phone.replace(/\D/g, '').slice(-10))) && p.financialYear === fy
-    );
+    const memberPayments = payments.filter((p) => {
+      if (p.financialYear !== fy) return false;
+      if (p.memberId) {
+        return p.memberId === memberId;
+      }
+      return Boolean(
+        member &&
+        p.memberPhone &&
+        member.phone &&
+        p.memberPhone.replace(/\D/g, '').slice(-10) === member.phone.replace(/\D/g, '').slice(-10)
+      );
+    });
     
     const successfulPayments = memberPayments.filter((p) => p.paymentStatus === 'successful');
     const pendingPayments = memberPayments.filter((p) => p.paymentStatus === 'pending');
 
-    const totalPaid = successfulPayments.reduce((acc, curr) => acc + curr.amount, 0);
-    const pendingPaid = pendingPayments.reduce((acc, curr) => acc + curr.amount, 0);
-    const remainingDue = Math.max(0, annualDue - totalPaid - pendingPaid);
+    const rawTotalPaid = successfulPayments.reduce((acc, curr) => acc + curr.amount, 0);
+    const rawPendingPaid = pendingPayments.reduce((acc, curr) => acc + curr.amount, 0);
+
+    // Subscription is capped at annualDue (max ₹1,500 per year)
+    const totalPaid = Math.min(annualDue, rawTotalPaid);
+
+    // Pending payments towards subscription are capped so total (totalPaid + pendingPaid) never exceeds annualDue (₹1,500 limit)
+    const pendingPaid = Math.min(Math.max(0, annualDue - totalPaid), rawPendingPaid);
+
+    // Remaining due only decreases as payments get VERIFIED (successful).
+    // Pending payments do not reduce remainingDue until verified!
+    const remainingDue = Math.max(0, annualDue - totalPaid);
 
     let status: DuesStatus = 'pending';
     if (totalPaid >= annualDue) {
       status = 'paid';
-    } else if (totalPaid + pendingPaid >= annualDue) {
-      status = 'pending_verification' as DuesStatus;
-    } else if (totalPaid > 0 || pendingPaid > 0) {
+    } else if (pendingPaid > 0) {
+      status = 'pending_verification';
+    } else if (totalPaid > 0) {
       status = 'partial';
     }
 
@@ -641,14 +802,16 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const fyDonations = donations.filter((d) => {
       if (d.paymentStatus !== 'successful') return false;
+      if (!d.createdAt) return true;
       const date = new Date(d.createdAt);
+      if (isNaN(date.getTime())) return true;
       return date >= fyStart && date <= fyEnd;
     });
     const fyPayments = payments.filter((p) => p.financialYear === fy && p.paymentStatus === 'successful');
     const fyExpenses = expenses.filter((e) => (e.financialYear === fy || getFinancialYear(new Date(e.date || e.createdAt)) === fy));
 
     const totalDonations = fyDonations.reduce((acc, curr) => acc + curr.amount, 0);
-    const totalSubscriptions = fyPayments.reduce((acc, curr) => acc + curr.amount, 0);
+    const totalSubscriptions = members.reduce((acc, m) => acc + getMemberSummary(m.id, fy).totalPaid, 0);
     const totalCollection = totalDonations + totalSubscriptions;
     const totalExpenses = fyExpenses.reduce((sum, e) => sum + e.amount, 0);
     const netBalance = totalCollection - totalExpenses;
@@ -705,9 +868,17 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       monthlyExpenseMap[m] = 0;
     });
 
-    [...fyDonations, ...fyPayments].forEach((txn) => {
-      const month = new Date(txn.createdAt).getMonth();
-      if (month in monthlyMap) monthlyMap[month] += txn.amount;
+    fyDonations.forEach((d) => {
+      const month = new Date(d.createdAt || new Date()).getMonth();
+      if (month in monthlyMap) monthlyMap[month] += d.amount;
+    });
+
+    members.forEach((m) => {
+      const sum = getMemberSummary(m.id, fy);
+      if (sum.totalPaid > 0) {
+        const month = sum.lastPaymentDate ? new Date(sum.lastPaymentDate).getMonth() : new Date().getMonth();
+        if (month in monthlyMap) monthlyMap[month] += sum.totalPaid;
+      }
     });
 
     fyExpenses.forEach((exp) => {
@@ -805,7 +976,19 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateFestivalConfig,
         updateHeroSlide,
         getFinancialMetrics,
-        getMemberSummary
+        getMemberSummary,
+        pushLocalDataToCloud: async () => {
+          return await pushAllLocalDataToCloud({
+            members,
+            donations,
+            expenses,
+            events,
+            notices,
+            sponsors,
+            committee,
+            payments
+          });
+        }
       }}
     >
       {children}

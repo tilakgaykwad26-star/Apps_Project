@@ -68,7 +68,63 @@ const DEMO_USERS: Record<string, { user: AppUser; member?: Member }> = {
       category: 'patron',
       status: 'active',
       joinedDate: '2024-01-01',
-      annualDueAmount: 500,
+      annualDueAmount: 1500,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z'
+    }
+  },
+  super_admin_shubham: {
+    user: {
+      uid: 'super-admin-03',
+      phone: '8999161652',
+      displayName: 'श्री. शुभम गोविंदरावजी नागपूरकर (Super Admin)',
+      role: 'super_admin',
+      memberId: 'comm-1',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      lastLoginAt: new Date().toISOString()
+    },
+    member: {
+      id: 'comm-1',
+      memberNumber: 'DM-2024-001',
+      fullName: 'Shri. Shubham Govindaravji Nagpurkar',
+      fullNameMarathi: 'श्री. शुभम गोविंदरावजी नागपूरकर',
+      phone: '8999161652',
+      address: 'दुर्गा चौक, चोप',
+      cityVillage: 'चोप',
+      pincode: '441207',
+      memberType: 'individual',
+      category: 'patron',
+      status: 'active',
+      joinedDate: '2024-01-01',
+      annualDueAmount: 1500,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z'
+    }
+  },
+  super_admin_shekhar: {
+    user: {
+      uid: 'super-admin-04',
+      phone: '9607396623',
+      displayName: 'श्री. शेखर ईश्वर कुथे (Super Admin)',
+      role: 'super_admin',
+      memberId: 'comm-4',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      lastLoginAt: new Date().toISOString()
+    },
+    member: {
+      id: 'comm-4',
+      memberNumber: 'DM-2024-004',
+      fullName: 'Shri. Shekhar Ishwar Kuthe',
+      fullNameMarathi: 'श्री. शेखर ईश्वर कुथे',
+      phone: '9607396623',
+      address: 'दुर्गा चौक, चोप',
+      cityVillage: 'चोप',
+      pincode: '441207',
+      memberType: 'individual',
+      category: 'patron',
+      status: 'active',
+      joinedDate: '2024-01-01',
+      annualDueAmount: 1500,
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z'
     }
@@ -275,6 +331,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (cleanPhone === '7796052953' || trimmedInput.toLowerCase().includes('tilak')) {
       setUser(DEMO_USERS.super_admin_tilak.user);
       setMemberProfile(findMemberByPhoneOrId('7796052953') || DEMO_USERS.super_admin_tilak.member || null);
+      return { success: true };
+    }
+
+    // Super Admin 3: Shree. Shubham Nagpurkar (8999161652)
+    if (cleanPhone === '8999161652' || trimmedInput.toLowerCase().includes('shubham')) {
+      setUser(DEMO_USERS.super_admin_shubham.user);
+      setMemberProfile(findMemberByPhoneOrId('8999161652') || DEMO_USERS.super_admin_shubham.member || null);
+      return { success: true };
+    }
+
+    // Super Admin 4: Shree. Shekhar Kuthe (9607396623)
+    if (cleanPhone === '9607396623' || trimmedInput.toLowerCase().includes('shekhar')) {
+      setUser(DEMO_USERS.super_admin_shekhar.user);
+      setMemberProfile(findMemberByPhoneOrId('9607396623') || DEMO_USERS.super_admin_shekhar.member || null);
       return { success: true };
     }
 

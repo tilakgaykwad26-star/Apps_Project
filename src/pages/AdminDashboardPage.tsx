@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { useMandal, HeroSlideItem } from '../context/MandalContext';
+import { useMandal, HeroSlideItem, sortMembers } from '../context/MandalContext';
 import { MANDAL_CONFIG } from '../config/constants';
 import { UserRole, Member, MemberType, MemberCategory } from '../types/auth';
 import { CommitteeMember } from '../types/committee';
@@ -329,7 +329,7 @@ export const AdminDashboardPage: React.FC = () => {
       allowed: isTreasurer || isSuperAdmin
     },
     { key: 'expenses', label: 'खर्च व्यवस्थापन (Expenses)', icon: Receipt, allowed: isTreasurer || isSuperAdmin },
-    { key: 'members', label: t.admin.tabs.members, icon: Users, allowed: isCommitteeAdmin || isSuperAdmin },
+    { key: 'members', label: `सभासद व्यवस्थापन (${members.length})`, icon: Users, allowed: isCommitteeAdmin || isSuperAdmin },
     { key: 'committee', label: 'कार्यकारणी मंडळ (Committee)', icon: Award, allowed: isCommitteeAdmin || isSuperAdmin },
     { key: 'banners', label: 'बॅनर व उत्सव (Banners)', icon: Sparkles, allowed: isContentManager || isSuperAdmin },
     { key: 'events', label: t.admin.tabs.events, icon: Calendar, allowed: isContentManager || isSuperAdmin },
@@ -347,6 +347,12 @@ export const AdminDashboardPage: React.FC = () => {
     const amount = parseInt(paymentAmountInput, 10);
     if (!amount || amount < 10) {
       showError('कृपया वैध रक्कम प्रविष्ट करा.');
+      return;
+    }
+
+    const currentSummary = getMemberSummary(selectedMemberForPayment.id, selectedFY);
+    if (amount > currentSummary.remainingDue) {
+      showError(`वर्गणी रक्कम बाकी रक्कमेपेक्षा (${formatINR(currentSummary.remainingDue)}) जास्त असू शकत नाही. वर्गणी मर्यादा ₹1,500 पर्यंत आहे.`);
       return;
     }
 
@@ -1323,6 +1329,8 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       </div>
 
+
+
       {/* 2. Admin Tabs Navigation */}
       <div style={{
         display: 'flex',
@@ -1507,7 +1515,12 @@ export const AdminDashboardPage: React.FC = () => {
             <div className="card" style={{ borderLeft: '4px solid var(--color-saffron-500)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>वर्गणी जमा व बाकी</div>
-                <Users size={18} color="var(--color-saffron-600)" />
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', backgroundColor: '#FEF3C7', padding: '3px 9px', borderRadius: '12px', border: '1px solid #FDE68A' }}>
+                  <Users size={15} color="#D97706" />
+                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#92400E' }}>
+                    {members.length} सभासद
+                  </span>
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', gap: '8px' }}>
                 <div>
@@ -2282,8 +2295,8 @@ export const AdminDashboardPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {members
-                    .filter((m) => {
+                  {sortMembers(members)
+                    .filter((m: Member) => {
                       if (memberSearch.trim()) {
                         const query = memberSearch.toLowerCase();
                         if (
@@ -2299,7 +2312,7 @@ export const AdminDashboardPage: React.FC = () => {
                       if (memberStatusFilter === 'paid') return sum.status === 'paid';
                       return sum.status === memberStatusFilter;
                     })
-                    .map((m) => {
+                    .map((m: Member) => {
                       const sum = getMemberSummary(m.id, selectedFY);
                       return (
                         <tr key={m.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
@@ -2332,6 +2345,10 @@ export const AdminDashboardPage: React.FC = () => {
                           <td style={{ padding: '12px 14px' }}>
                             {sum.status === 'paid' ? (
                               <span className="badge badge-success">✓ भरली ({formatINR(sum.totalPaid)})</span>
+                            ) : sum.status === 'pending_verification' ? (
+                              <span className="badge badge-warning" style={{ backgroundColor: '#FEF3C7', color: '#92400E', borderColor: '#F59E0B' }}>
+                                ⏳ पडताळणी प्रलंबित (बाकी {formatINR(sum.remainingDue)})
+                              </span>
                             ) : (
                               <span className="badge badge-danger">बाकी {formatINR(sum.remainingDue)}</span>
                             )}
@@ -2339,43 +2356,53 @@ export const AdminDashboardPage: React.FC = () => {
                           <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                               {(() => {
-                                const pendingPayment = payments.find((p) => (p.memberId === m.id || (p.memberPhone && m.phone && p.memberPhone.replace(/\D/g, '').slice(-10) === m.phone.replace(/\D/g, '').slice(-10))) && p.paymentStatus === 'pending');
-                                if (pendingPayment) {
+                                if (sum.status !== 'paid') {
+                                  const pendingPayment = payments.find((p) => {
+                                    if (p.paymentStatus !== 'pending') return false;
+                                    if (p.memberId) return p.memberId === m.id;
+                                    return Boolean(m.phone && p.memberPhone && p.memberPhone.replace(/\D/g, '').slice(-10) === m.phone.replace(/\D/g, '').slice(-10));
+                                  });
+                                  if (pendingPayment) {
+                                    return (
+                                      <button
+                                        onClick={() => handleVerifyMemberPayment(pendingPayment)}
+                                        className="btn btn-sm"
+                                        style={{
+                                          fontSize: '0.78rem',
+                                          gap: '4px',
+                                          backgroundColor: '#16A34A',
+                                          borderColor: '#16A34A',
+                                          color: '#FFFFFF',
+                                          fontWeight: 800,
+                                          boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)'
+                                        }}
+                                        title="बँक खात्यात जमा पडताळणी करा व WhatsApp पावती पाठवा"
+                                      >
+                                        <CheckCircle size={13} />
+                                        <span>⏳ वर्गणी पडताळणी करा ({formatINR(pendingPayment.amount)})</span>
+                                      </button>
+                                    );
+                                  }
+                                }
+
+                                if (sum.remainingDue > 0) {
                                   return (
                                     <button
-                                      onClick={() => handleVerifyMemberPayment(pendingPayment)}
-                                      className="btn btn-sm"
-                                      style={{
-                                        fontSize: '0.78rem',
-                                        gap: '4px',
-                                        backgroundColor: '#16A34A',
-                                        borderColor: '#16A34A',
-                                        color: '#FFFFFF',
-                                        fontWeight: 800,
-                                        boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)'
+                                      onClick={() => {
+                                        setSelectedMemberForPayment(m);
+                                        setPaymentAmountInput(String(sum.remainingDue || MANDAL_CONFIG.annualSubscriptionFee));
+                                        setIsAddPaymentModalOpen(true);
                                       }}
-                                      title="बँक खात्यात जमा पडताळणी करा व WhatsApp पावती पाठवा"
+                                      className="btn btn-secondary btn-sm"
+                                      style={{ fontSize: '0.78rem', gap: '4px' }}
+                                      title="Record Offline Payment"
                                     >
-                                      <CheckCircle size={13} />
-                                      <span>⏳ वर्गणी पडताळणी करा ({formatINR(pendingPayment.amount)})</span>
+                                      <DollarSign size={13} color="#2E7D32" />
+                                      <span>वर्गणी जमा</span>
                                     </button>
                                   );
                                 }
-                                return (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedMemberForPayment(m);
-                                      setPaymentAmountInput(String(sum.remainingDue || 500));
-                                      setIsAddPaymentModalOpen(true);
-                                    }}
-                                    className="btn btn-secondary btn-sm"
-                                    style={{ fontSize: '0.78rem', gap: '4px' }}
-                                    title="Record Offline Payment"
-                                  >
-                                    <DollarSign size={13} color="#2E7D32" />
-                                    <span>वर्गणी जमा</span>
-                                  </button>
-                                );
+                                return null;
                               })()}
                               <button
                                 onClick={() => openEditMemberModal(m)}
@@ -3577,11 +3604,14 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label form-label-required">वर्गणी रक्कम (₹)</label>
+              <label className="form-label form-label-required">
+                वर्गणी रक्कम (₹) [कमाल बाकी: {formatINR(getMemberSummary(selectedMemberForPayment.id, selectedFY).remainingDue)}]
+              </label>
               <input
                 type="number"
                 required
                 min={10}
+                max={getMemberSummary(selectedMemberForPayment.id, selectedFY).remainingDue || 1500}
                 className="form-input"
                 value={paymentAmountInput}
                 onChange={(e) => setPaymentAmountInput(e.target.value)}

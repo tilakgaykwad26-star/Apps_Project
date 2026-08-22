@@ -13,7 +13,7 @@ export const MANDAL_CONFIG = {
   email: 'durgamandal.chop@gmail.com',
   officialUpiId: 'shekharkuthe30@okhdfcbank',
   upiAccountName: 'Chandrashekhar Kuthe',
-  googleMapsUrl: 'https://maps.google.com/?q=Chop',
+  googleMapsUrl: 'https://maps.app.goo.gl/mGaohuXu46N9DbYZ9',
   socialMedia: {
     instagram: 'https://www.instagram.com/ig_aaibhawani_official?igsh=OGRjcjRsbmZwNWI2',
     facebook: 'https://facebook.com/durgamandalchop',

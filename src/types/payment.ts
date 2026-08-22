@@ -6,7 +6,7 @@ export type PaymentType =
   | 'festival_fund'       // उत्सव निधी
   | 'other';
 
-export type DuesStatus = 'paid' | 'pending' | 'partial';
+export type DuesStatus = 'paid' | 'pending' | 'partial' | 'pending_verification';
 
 export interface MemberPayment {
   id: string;

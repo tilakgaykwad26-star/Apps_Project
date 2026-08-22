@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Durga Mandal</string>
+    <string name="title_activity_main">Durga Mandal</string>
+    <string name="package_name">com.durgamandal.app</string>
+    <string name="custom_url_scheme">com.durgamandal.app</string>
+</resources>

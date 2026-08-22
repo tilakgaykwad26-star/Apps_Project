@@ -110,9 +110,6 @@ export const UpiQrPaymentModal: React.FC<UpiQrPaymentModalProps> = ({
     } catch (err) {
       console.warn('Protocol launch error', err);
     }
-
-    // Direct auto-open receipt page without requiring extra click
-    handleCompletePayment();
   };
 
   return (

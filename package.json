@@ -11,6 +11,9 @@
     "seed": "tsx src/utils/seedData.ts"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "canvas-confetti": "^1.9.4",
     "firebase": "^10.12.0",
     "jspdf": "^2.5.1",
