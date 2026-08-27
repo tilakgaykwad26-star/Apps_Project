@@ -19,7 +19,8 @@ export const COLLECTIONS = {
   SPONSORS: 'dm_sponsors',
   COMMITTEE: 'dm_committee',
   CONFIG: 'dm_config',
-  AUDIT_LOGS: 'dm_audit_logs'
+  AUDIT_LOGS: 'dm_audit_logs',
+  LIVE_STREAM: 'dm_live_stream'
 } as const;
 
 /**

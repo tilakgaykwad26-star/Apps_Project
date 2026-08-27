@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { useMandal, HeroSlideItem, sortMembers } from '../context/MandalContext';
+import { useMandal, HeroSlideItem } from '../context/MandalContext';
 import { MANDAL_CONFIG } from '../config/constants';
 import { UserRole, Member, MemberType, MemberCategory } from '../types/auth';
 import { CommitteeMember } from '../types/committee';
@@ -54,9 +54,11 @@ import {
   TrendingUp,
   Coins,
   FileText,
-  Sparkles
+  Sparkles,
+  Radio
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
+import { extractYouTubeId } from '../types/livestream';
 
 export const AdminDashboardPage: React.FC = () => {
   const { language, t, isMarathi } = useLanguage();
@@ -105,12 +107,44 @@ export const AdminDashboardPage: React.FC = () => {
     festivalConfig,
     heroSlides,
     updateFestivalConfig,
+    addHeroSlide,
     updateHeroSlide,
+    deleteHeroSlide,
+    liveStreamConfig,
+    updateLiveStreamConfig,
     getFinancialMetrics,
     getMemberSummary
   } = useMandal();
 
   const { showSuccess, showError } = useNotification();
+
+  // Add New Slide Modal State
+  const [isAddSlideModalOpen, setIsAddSlideModalOpen] = useState(false);
+  const [newSlideBannerMode, setNewSlideBannerMode] = useState<'standard' | 'full_photo'>('standard');
+  const [newSlideTitleMarathi, setNewSlideTitleMarathi] = useState('');
+  const [newSlideBadge, setNewSlideBadge] = useState('');
+  const [newSlideHighlightMarathi, setNewSlideHighlightMarathi] = useState('');
+  const [newSlideDescMarathi, setNewSlideDescMarathi] = useState('');
+  const [newSlideBtn1Text, setNewSlideBtn1Text] = useState('❤️ देवीचे दर्शन व देणगी');
+  const [newSlideBtn1ActionKey, setNewSlideBtn1ActionKey] = useState('donate');
+  const [newSlideBtn2Text, setNewSlideBtn2Text] = useState('📅 आजचे विशेष कार्यक्रम');
+  const [newSlideBtn2ActionKey, setNewSlideBtn2ActionKey] = useState('events');
+  const [newSlideImageUrl, setNewSlideImageUrl] = useState('');
+  const [isSavingNewSlide, setIsSavingNewSlide] = useState(false);
+
+  // Live Stream Control States
+  const [liveStreamTitle, setLiveStreamTitle] = useState(liveStreamConfig?.title || 'सार्वजनिक बाल दुर्गा उत्सव - थेट प्रक्षेपण (Live Stream)');
+  const [liveStreamUrl, setLiveStreamUrl] = useState(liveStreamConfig?.youtubeUrl || '');
+  const [liveStreamDesc, setLiveStreamDesc] = useState(liveStreamConfig?.description || 'मंडळाची दैनिक संध्या आरती व सांस्कृतिक कार्यक्रम थेट पहा.');
+  const [isSavingLiveStream, setIsSavingLiveStream] = useState(false);
+
+  useEffect(() => {
+    if (liveStreamConfig) {
+      if (liveStreamConfig.title) setLiveStreamTitle(liveStreamConfig.title);
+      if (liveStreamConfig.youtubeUrl !== undefined) setLiveStreamUrl(liveStreamConfig.youtubeUrl);
+      if (liveStreamConfig.description !== undefined) setLiveStreamDesc(liveStreamConfig.description);
+    }
+  }, [liveStreamConfig?.youtubeUrl, liveStreamConfig?.title, liveStreamConfig?.description]);
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<string>('overview');
@@ -332,6 +366,12 @@ export const AdminDashboardPage: React.FC = () => {
     { key: 'members', label: `सभासद व्यवस्थापन (${members.length})`, icon: Users, allowed: isCommitteeAdmin || isSuperAdmin },
     { key: 'committee', label: 'कार्यकारणी मंडळ (Committee)', icon: Award, allowed: isCommitteeAdmin || isSuperAdmin },
     { key: 'banners', label: 'बॅनर व उत्सव (Banners)', icon: Sparkles, allowed: isContentManager || isSuperAdmin },
+    {
+      key: 'livestream',
+      label: liveStreamConfig?.isLive ? '🔴 थेट प्रक्षेपण (LIVE)' : '📹 थेट प्रक्षेपण (Live Stream)',
+      icon: Radio,
+      allowed: isContentManager || isSuperAdmin
+    },
     { key: 'events', label: t.admin.tabs.events, icon: Calendar, allowed: isContentManager || isSuperAdmin },
     { key: 'notices', label: t.admin.tabs.notices, icon: Bell, allowed: isContentManager || isSuperAdmin },
     { key: 'gallery', label: t.admin.tabs.gallery, icon: Image, allowed: isContentManager || isSuperAdmin },
@@ -938,6 +978,58 @@ export const AdminDashboardPage: React.FC = () => {
       showError('स्लाईड बदलताना त्रुटी आली.');
     } finally {
       setIsSavingSlide(false);
+    }
+  };
+
+  const handleCreateSlideSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSlideTitleMarathi.trim()) {
+      showError('कृपया स्लाईडचे शीर्षक प्रविष्ट करा.');
+      return;
+    }
+    setIsSavingNewSlide(true);
+    try {
+      await addHeroSlide({
+        badge: newSlideBadge.trim() || '॥ उत्सव सोहळा ॥',
+        titleMarathi: newSlideTitleMarathi.trim(),
+        titleEnglish: newSlideTitleMarathi.trim(),
+        highlightMarathi: newSlideHighlightMarathi.trim(),
+        highlightEnglish: newSlideHighlightMarathi.trim(),
+        descMarathi: newSlideDescMarathi.trim(),
+        descEnglish: newSlideDescMarathi.trim(),
+        gradient: 'radial-gradient(circle at top right, #8C2205 0%, #A02808 45%, #420A00 100%)',
+        btn1TextMarathi: newSlideBtn1Text.trim() || '❤️ देणगी नोंदवा',
+        btn1ActionKey: newSlideBtn1ActionKey,
+        btn2TextMarathi: newSlideBtn2Text.trim() || '📅 वेळापत्रक',
+        btn2ActionKey: newSlideBtn2ActionKey,
+        accentColor: '#FFD54F',
+        imageUrl: newSlideImageUrl.trim() || undefined,
+        bannerMode: newSlideBannerMode
+      });
+      showSuccess('नवीन स्लाईड / बॅनर यशस्वीरित्या जोडला गेला!');
+      setIsAddSlideModalOpen(false);
+
+      // Reset form
+      setNewSlideTitleMarathi('');
+      setNewSlideBadge('');
+      setNewSlideHighlightMarathi('');
+      setNewSlideDescMarathi('');
+      setNewSlideImageUrl('');
+    } catch {
+      showError('स्लाईड जोडताना त्रुटी आली.');
+    } finally {
+      setIsSavingNewSlide(false);
+    }
+  };
+
+  const handleDeleteSlide = async (id: string) => {
+    if (confirm('खात्री करा: ही स्लाईड / बॅनर डिलीट करायचा आहे का?')) {
+      try {
+        await deleteHeroSlide(id);
+        showSuccess('स्लाईड यशस्वीरित्या डिलीट केली!');
+      } catch {
+        showError('स्लाईड डिलीट करताना त्रुटी आली.');
+      }
     }
   };
 
@@ -2295,8 +2387,8 @@ export const AdminDashboardPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortMembers(members)
-                    .filter((m: Member) => {
+                  {members
+                    .filter((m) => {
                       if (memberSearch.trim()) {
                         const query = memberSearch.toLowerCase();
                         if (
@@ -2312,7 +2404,7 @@ export const AdminDashboardPage: React.FC = () => {
                       if (memberStatusFilter === 'paid') return sum.status === 'paid';
                       return sum.status === memberStatusFilter;
                     })
-                    .map((m: Member) => {
+                    .map((m) => {
                       const sum = getMemberSummary(m.id, selectedFY);
                       return (
                         <tr key={m.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
@@ -2764,13 +2856,24 @@ export const AdminDashboardPage: React.FC = () => {
 
           {/* Section 2: Manage All Hero Slides */}
           <div>
-            <div style={{ marginBottom: 'var(--space-md)' }}>
-              <h2 style={{ fontSize: '1.25rem', color: 'var(--color-maroon-800)', margin: 0 }}>
-                होमपेज ऑटो-स्लायडर स्लाईड्स ({heroSlides?.length || 0})
-              </h2>
-              <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: '2px 0 0 0' }}>
-                होमपेजवर फिरणाऱ्या प्रत्येक स्लाईडचा मजकूर आणि बटने येथून एडिट करा.
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: 'var(--space-md)' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', color: 'var(--color-maroon-800)', margin: 0 }}>
+                  होमपेज ऑटो-स्लायडर स्लाईड्स ({heroSlides?.length || 0})
+                </h2>
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: '2px 0 0 0' }}>
+                  होमपेजवर फिरणाऱ्या प्रत्येक स्लाईडचा मजकूर, फोटो आणि बटने येथून मॅनेज किंवा नवीन जोडा.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsAddSlideModalOpen(true)}
+                className="btn btn-saffron"
+                style={{ fontWeight: 700, gap: '6px', fontSize: '0.9rem' }}
+              >
+                <Plus size={16} />
+                <span>➕ नवीन स्लाईड / बॅनर जोडा</span>
+              </button>
             </div>
 
             <div style={{
@@ -2868,7 +2971,22 @@ export const AdminDashboardPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {slide.id !== 'slide-1' ? (
+                      <button
+                        onClick={() => handleDeleteSlide(slide.id)}
+                        className="btn btn-danger btn-sm"
+                        style={{ fontSize: '0.78rem', gap: '4px', padding: '4px 10px' }}
+                      >
+                        <Trash2 size={13} />
+                        <span>डिलीट</span>
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                        मुख्य मुख्य स्लाईड
+                      </span>
+                    )}
+
                     <button
                       onClick={() => openEditSlideModal(slide)}
                       className="btn btn-secondary btn-sm"
@@ -2888,6 +3006,215 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4.6.1 TAB: LIVE STREAM CONTROL */}
+      {activeTab === 'livestream' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
+          <div className="card" style={{
+            border: liveStreamConfig?.isLive ? '2px solid #EF4444' : '1px solid var(--color-border)',
+            backgroundColor: liveStreamConfig?.isLive ? '#FEF2F2' : 'var(--color-surface)',
+            padding: 'var(--space-xl)',
+            borderRadius: 'var(--radius-xl)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  backgroundColor: liveStreamConfig?.isLive ? '#DC2626' : '#6B7280',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: liveStreamConfig?.isLive ? '0 0 20px rgba(220, 38, 38, 0.4)' : 'none'
+                }}>
+                  <Radio size={24} className={liveStreamConfig?.isLive ? 'animate-pulse' : ''} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h2 style={{ fontSize: '1.3rem', color: liveStreamConfig?.isLive ? '#991B1B' : 'var(--color-maroon-800)', margin: 0, fontWeight: 800 }}>
+                      थेट प्रक्षेपण नियंत्रण (Live Telecast Control)
+                    </h2>
+                    <span style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      backgroundColor: liveStreamConfig?.isLive ? '#DC2626' : '#E5E7EB',
+                      color: liveStreamConfig?.isLive ? '#FFFFFF' : '#374151'
+                    }}>
+                      {liveStreamConfig?.isLive ? '🔴 LIVE Broadcast चालू आहे' : '⚪ प्रक्षेपण बंद (OFF)'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: '4px 0 0 0' }}>
+                    येथून YouTube Live ची लिंक टाका आणि सर्व भाविकांसाठी थेट आरती / कार्यक्रम ॲपमध्ये सुरू करा.
+                  </p>
+                </div>
+              </div>
+
+              {/* Master Toggle Button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const nextState = !liveStreamConfig?.isLive;
+                  await updateLiveStreamConfig({
+                    isLive: nextState,
+                    youtubeUrl: liveStreamUrl.trim(),
+                    title: liveStreamTitle.trim() || 'सार्वजनिक बाल दुर्गा उत्सव - थेट प्रक्षेपण',
+                    description: liveStreamDesc.trim()
+                  });
+                  if (nextState) {
+                    showSuccess('🔴 थेट प्रक्षेपण यशस्वीरित्या सुरू झाले! सर्व सभासदांना Home Page वर दिसेल.');
+                  } else {
+                    showSuccess('थेट प्रक्षेपण बंद करण्यात आले.');
+                  }
+                }}
+                className={`btn ${liveStreamConfig?.isLive ? 'btn-danger' : 'btn-saffron'} btn-lg`}
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 800,
+                  padding: '12px 24px',
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: liveStreamConfig?.isLive ? '0 4px 14px rgba(220, 38, 38, 0.4)' : '0 4px 14px rgba(245, 158, 11, 0.3)'
+                }}
+              >
+                {liveStreamConfig?.isLive ? '⏹️ Live Stream बंद करा' : '🔴 LIVE Streaming चालू करा'}
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setIsSavingLiveStream(true);
+              try {
+                await updateLiveStreamConfig({
+                  isLive: liveStreamConfig?.isLive ?? true,
+                  title: liveStreamTitle.trim() || 'सार्वजनिक बाल दुर्गा उत्सव - थेट प्रक्षेपण',
+                  youtubeUrl: liveStreamUrl.trim(),
+                  description: liveStreamDesc.trim()
+                });
+                showSuccess('थेट प्रक्षेपणाची माहिती यशस्वीरित्या सेव्ह केली!');
+              } catch {
+                showError('माहिती सेव्ह करताना त्रुटी आली.');
+              } finally {
+                setIsSavingLiveStream(false);
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: 'var(--color-surface)', padding: '20px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label className="form-label" style={{ fontWeight: 700, margin: 0 }}>
+                    YouTube Live Video Link किंवा Video ID <span style={{ color: 'red' }}>*</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setLiveStreamUrl('https://www.youtube.com/watch?v=5Eqb_-j3FDA')}
+                      style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid var(--color-border)', backgroundColor: '#FEF3C7', color: '#B45309', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      🚩 दुर्गा आरती (Demo 1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLiveStreamUrl('https://www.youtube.com/watch?v=l_98vK52f44')}
+                      style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid var(--color-border)', backgroundColor: '#FEF3C7', color: '#B45309', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      🔱 जय अंबे गौरी (Demo 2)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLiveStreamUrl('')}
+                      style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #FECACA', backgroundColor: '#FEE2E2', color: '#991B1B', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      🧹 लिंक साफ करा
+                    </button>
+                  </div>
+                </div>
+
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. https://www.youtube.com/watch?v=VIDEO_ID किंवा https://youtu.be/VIDEO_ID"
+                  value={liveStreamUrl}
+                  onChange={(e) => setLiveStreamUrl(e.target.value)}
+                  required
+                  style={{ fontSize: '0.92rem' }}
+                />
+                <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                  समर्थित लिंक्स: <code>youtube.com/watch?v=...</code>, <code>youtu.be/...</code>, <code>youtube.com/live/...</code>
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  थेट प्रक्षेपणाचे नाव (Stream Title)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. शारदीय नवरात्रोत्सव - दैनिक संध्या महाआरती सोहळा"
+                  value={liveStreamTitle}
+                  onChange={(e) => setLiveStreamTitle(e.target.value)}
+                  style={{ fontSize: '0.92rem' }}
+                />
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  तपशील / वर्णन (Description - optional)
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={2}
+                  placeholder="e.g. मंडळाची दैनिक महाआरती व दीपप्रज्वलन सोहळा थेट पहा."
+                  value={liveStreamDesc}
+                  onChange={(e) => setLiveStreamDesc(e.target.value)}
+                  style={{ fontSize: '0.88rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px' }}>
+                <div style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🙏 एकूण प्रणाम / नमन संख्या: <strong>{liveStreamConfig?.pranamCount || 0}</strong></span>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-saffron"
+                  disabled={isSavingLiveStream}
+                  style={{ fontWeight: 700, padding: '8px 20px' }}
+                >
+                  {isSavingLiveStream ? 'सेव्ह होत आहे...' : '💾 सेव्ह करा व अपडेट करा'}
+                </button>
+              </div>
+            </form>
+
+            {/* Instant Preview Box */}
+            {liveStreamUrl && (
+              <div style={{ marginTop: '24px' }}>
+                <h4 style={{ fontSize: '1rem', color: 'var(--color-maroon-800)', marginBottom: '10px', fontWeight: 700 }}>
+                  📺 थेट प्रक्षेपण पूर्वदृश्य (Live Player Preview)
+                </h4>
+                {extractYouTubeId(liveStreamUrl) ? (
+                  <div style={{ width: '100%', maxWidth: '640px', aspectRatio: '16/9', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '2px solid var(--color-gold-500)', boxShadow: 'var(--shadow-md)' }}>
+                    <iframe
+                      key={extractYouTubeId(liveStreamUrl) || 'preview'}
+                      src={`https://www.youtube-nocookie.com/embed/${extractYouTubeId(liveStreamUrl)}?autoplay=0&rel=0`}
+                      title="Preview"
+                      className="w-full h-full border-0"
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ padding: '16px', backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '8px', color: '#B45309', fontSize: '0.88rem' }}>
+                    ⚠️ कृपया वैध YouTube लिंक प्रविष्ट करा. Video ID सापडला नाही.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -5916,6 +6243,241 @@ export const AdminDashboardPage: React.FC = () => {
               style={{ backgroundColor: 'var(--color-maroon-700)', borderColor: 'var(--color-maroon-700)', fontWeight: 700 }}
             >
               {isSavingSlide ? 'बदल जतन होत आहेत...' : 'बदल जतन करा (Save Slide)'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add New Hero Slide Modal */}
+      <Modal
+        isOpen={isAddSlideModalOpen}
+        onClose={() => setIsAddSlideModalOpen(false)}
+        title="➕ नवीन स्लाईड / बॅनर जोडा (Add New Banner Slide)"
+        maxWidth="620px"
+      >
+        <form onSubmit={handleCreateSlideSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          {/* Banner Display Mode Selector */}
+          <div className="form-group" style={{ backgroundColor: 'var(--color-maroon-50)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-maroon-200)' }}>
+            <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-maroon-800)', marginBottom: '8px' }}>
+              बॅनरचा प्रकार निवडा (Choose Banner Style):
+            </label>
+            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: newSlideBannerMode === 'standard' ? 700 : 500, fontSize: '0.88rem' }}>
+                <input
+                  type="radio"
+                  name="newBannerMode"
+                  value="standard"
+                  checked={newSlideBannerMode === 'standard'}
+                  onChange={() => setNewSlideBannerMode('standard')}
+                />
+                <span>📝 मजकूर + बॅकग्राउंड (Standard)</span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: newSlideBannerMode === 'full_photo' ? 700 : 500, fontSize: '0.88rem', color: 'var(--color-saffron-600)' }}>
+                <input
+                  type="radio"
+                  name="newBannerMode"
+                  value="full_photo"
+                  checked={newSlideBannerMode === 'full_photo'}
+                  onChange={() => setNewSlideBannerMode('full_photo')}
+                />
+                <span>🖼️ केवळ पूर्ण फोटो / पोस्टर बॅनर (Plain Full Photo)</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label form-label-required">स्लाईड मुख्य शीर्षक (Title) *</label>
+            <input
+              type="text"
+              required
+              className="form-input"
+              value={newSlideTitleMarathi}
+              onChange={(e) => setNewSlideTitleMarathi(e.target.value)}
+              placeholder="उदा. महाप्रसाद व अन्नदान सेवा / सांस्कृतिक कार्यक्रम"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">मंत्र / ब्रीदवाक्य (Top Badge)</label>
+            <input
+              type="text"
+              className="form-input"
+              value={newSlideBadge}
+              onChange={(e) => setNewSlideBadge(e.target.value)}
+              placeholder="उदा. ॥ उदो बोला उदो अंबाबाई माउलीचा हो ॥"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">ठळक वैशिष्ट्य / तारीख व वेळ (Highlight)</label>
+            <input
+              type="text"
+              className="form-input"
+              value={newSlideHighlightMarathi}
+              onChange={(e) => setNewSlideHighlightMarathi(e.target.value)}
+              placeholder="उदा. ११ ऑक्टोबर ते २२ ऑक्टोबर २०२६ (विशेष सोहळा)"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">वर्णन / संदेश (Description)</label>
+            <textarea
+              className="form-input"
+              rows={3}
+              value={newSlideDescMarathi}
+              onChange={(e) => setNewSlideDescMarathi(e.target.value)}
+              placeholder="स्लाईडवरील संदेश प्रविष्ट करा..."
+            />
+          </div>
+
+          {/* Photo Upload */}
+          <div className="form-group" style={{ backgroundColor: 'var(--color-surface-subtle)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: 'var(--color-maroon-800)', marginBottom: '4px' }}>
+              <Camera size={16} color="var(--color-saffron-600)" />
+              <span>बॅनर फोटो निवडा (Upload Banner Image)</span>
+            </label>
+
+            {newSlideImageUrl && (
+              <div style={{ position: 'relative', marginBottom: '12px', width: 'fit-content' }}>
+                <div style={{
+                  width: '260px',
+                  height: '145px',
+                  borderRadius: 'var(--radius-md)',
+                  overflow: 'hidden',
+                  border: '2px solid var(--color-gold-500)',
+                  boxShadow: 'var(--shadow-sm)',
+                  backgroundColor: '#1a1a1a'
+                }}>
+                  <img
+                    src={newSlideImageUrl}
+                    alt="Preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewSlideImageUrl('')}
+                  className="btn btn-danger btn-sm"
+                  style={{ position: 'absolute', top: '6px', right: '6px', padding: '4px 8px', fontSize: '0.72rem' }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+              <label
+                className="btn btn-secondary btn-sm"
+                style={{ cursor: 'pointer', backgroundColor: '#ffffff', borderColor: 'var(--color-maroon-300)', color: 'var(--color-maroon-800)', fontWeight: 600, gap: '6px' }}
+              >
+                <Upload size={14} />
+                <span>📸 कॉम्प्युटर/मोबाईलमधून फोटो निवडा</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        const compressed = await compressImageFile(file, 1200, 0.8);
+                        setNewSlideImageUrl(compressed);
+                      } catch {
+                        const reader = new FileReader();
+                        reader.onloadend = () => setNewSlideImageUrl(reader.result as string);
+                        reader.readAsDataURL(file);
+                      }
+                    }
+                  }}
+                  hidden
+                />
+              </label>
+
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>किंवा</span>
+
+              <input
+                type="text"
+                className="form-input"
+                style={{ flex: '1', minWidth: '220px', fontSize: '0.85rem' }}
+                value={newSlideImageUrl.startsWith('data:') ? '(डिव्हाइसमधून फोटो निवडला आहे)' : newSlideImageUrl}
+                onChange={(e) => setNewSlideImageUrl(e.target.value)}
+                placeholder="किंवा फोटो URL (https://...)"
+                disabled={newSlideImageUrl.startsWith('data:')}
+              />
+            </div>
+          </div>
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">बटण १ मजकूर</label>
+              <input
+                type="text"
+                className="form-input"
+                value={newSlideBtn1Text}
+                onChange={(e) => setNewSlideBtn1Text(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">बटण १ लिंक/कृती</label>
+              <select
+                className="form-select"
+                value={newSlideBtn1ActionKey}
+                onChange={(e) => setNewSlideBtn1ActionKey(e.target.value)}
+              >
+                <option value="donate">❤️ देणगी (Donate Page)</option>
+                <option value="events">📅 कार्यक्रम (Events Page)</option>
+                <option value="gallery">📸 फोटो गॅलरी (Gallery Page)</option>
+                <option value="members">🪪 सभासद पोर्टल (Members)</option>
+                <option value="about">ℹ️ मंडळाची माहिती (About)</option>
+                <option value="contact">📞 संपर्क (Contact)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">बटण २ मजकूर</label>
+              <input
+                type="text"
+                className="form-input"
+                value={newSlideBtn2Text}
+                onChange={(e) => setNewSlideBtn2Text(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">बटण २ लिंक/कृती</label>
+              <select
+                className="form-select"
+                value={newSlideBtn2ActionKey}
+                onChange={(e) => setNewSlideBtn2ActionKey(e.target.value)}
+              >
+                <option value="events">📅 कार्यक्रम (Events Page)</option>
+                <option value="donate">❤️ देणगी (Donate Page)</option>
+                <option value="gallery">📸 फोटो गॅलरी (Gallery Page)</option>
+                <option value="members">🪪 सभासद पोर्टल (Members)</option>
+                <option value="about">ℹ️ मंडळाची माहिती (About)</option>
+                <option value="contact">📞 संपर्क (Contact)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: 'var(--space-xs)' }}>
+            <button
+              type="button"
+              onClick={() => setIsAddSlideModalOpen(false)}
+              className="btn btn-secondary"
+            >
+              {t.admin.actions.cancel}
+            </button>
+            <button
+              type="submit"
+              disabled={isSavingNewSlide}
+              className="btn btn-saffron"
+              style={{ fontWeight: 700, padding: '8px 20px' }}
+            >
+              {isSavingNewSlide ? 'सेव्ह होत आहे...' : '➕ नवीन स्લાઈड सेव्ह करा'}
             </button>
           </div>
         </form>

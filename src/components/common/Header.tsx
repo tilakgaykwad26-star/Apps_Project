@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useMandal } from '../../context/MandalContext';
 import { MANDAL_CONFIG } from '../../config/constants';
 import { UserRole } from '../../types/auth';
 import {
@@ -18,7 +19,8 @@ import {
   Info,
   PhoneCall,
   Menu,
-  X
+  X,
+  Radio
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -29,6 +31,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
   const { language, setLanguage, t } = useLanguage();
   const { user, role, switchRoleForDemo, logout, isAuthenticated, isTreasurer, isSuperAdmin, isCommitteeAdmin } = useAuth();
+  const { liveStreamConfig } = useMandal();
 
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
@@ -54,6 +57,10 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
     { key: 'members', label: t.nav.members, icon: User },
     { key: 'contact', label: t.nav.contact, icon: PhoneCall },
   ];
+
+  if (liveStreamConfig?.isLive) {
+    navItems.unshift({ key: 'home', label: '🔴 LIVE', icon: Radio, highlight: true });
+  }
 
   if (isSuperAdmin || isTreasurer || isCommitteeAdmin) {
     navItems.push({ key: 'admin', label: t.nav.admin, icon: ShieldCheck, highlight: false });
@@ -276,7 +283,8 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
               fontSize: '0.78rem',
               fontWeight: 600,
               color: 'var(--color-saffron-600)',
-              letterSpacing: '0.04em'
+              letterSpacing: '0.04em',
+              whiteSpace: 'nowrap'
             }}>
               {language === 'en' ? MANDAL_CONFIG.taglineEnglish : MANDAL_CONFIG.taglineMarathi}
             </div>

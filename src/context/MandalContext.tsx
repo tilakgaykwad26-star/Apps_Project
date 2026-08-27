@@ -9,6 +9,7 @@ import { MemberPayment, MemberFinancialSummary, DuesStatus } from '../types/paym
 import { Sponsor } from '../types/sponsor';
 import { AuditLog, AuditActionType } from '../types/audit';
 import { Expense } from '../types/expense';
+import { LiveStreamConfig, DEFAULT_LIVESTREAM_CONFIG } from '../types/livestream';
 import {
   SEED_COMMITTEE,
   SEED_EVENTS,
@@ -177,6 +178,7 @@ interface MandalContextType {
   activeSponsors: Sponsor[];
   festivalConfig: FestivalConfig;
   heroSlides: HeroSlideItem[];
+  liveStreamConfig: LiveStreamConfig;
 
   // CRUD Operations
   addDonation: (donation: Omit<Donation, 'id' | 'createdAt' | 'receiptNumber'>) => Promise<Donation>;
@@ -217,30 +219,15 @@ interface MandalContextType {
   resetCommitteeToDefaults: () => Promise<void>;
 
   updateFestivalConfig: (data: Partial<FestivalConfig>) => Promise<void>;
+  addHeroSlide: (slide: Omit<HeroSlideItem, 'id'>) => Promise<HeroSlideItem>;
   updateHeroSlide: (id: string, data: Partial<HeroSlideItem>) => Promise<void>;
+  deleteHeroSlide: (id: string) => Promise<void>;
+  updateLiveStreamConfig: (data: Partial<LiveStreamConfig>) => Promise<void>;
+  incrementPranam: () => Promise<void>;
 
   getFinancialMetrics: (fy?: string) => FinancialMetrics;
   getMemberSummary: (memberId: string, fy?: string) => MemberFinancialSummary;
   pushLocalDataToCloud: () => Promise<{ success: boolean; totalSynced: number; message: string }>;
-}
-
-export function sortMembers(list: Member[]): Member[] {
-  if (!Array.isArray(list)) return [];
-  return [...list].sort((a, b) => {
-    const numA = parseInt((a.memberNumber || '').replace(/\D/g, ''), 10) || 0;
-    const numB = parseInt((b.memberNumber || '').replace(/\D/g, ''), 10) || 0;
-    if (numA !== numB) return numA - numB;
-    return (a.memberNumber || '').localeCompare(b.memberNumber || '', undefined, { numeric: true });
-  });
-}
-
-export function sortDonations(list: Donation[]): Donation[] {
-  if (!Array.isArray(list)) return [];
-  return [...list].sort((a, b) => {
-    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    return timeB - timeA;
-  });
 }
 
 const MandalContext = createContext<MandalContextType | undefined>(undefined);
@@ -311,9 +298,13 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   function parseDonations(): Donation[] {
     const loaded = safeLocalParse<Donation[]>('dm_donations', SEED_DONATIONS);
-    if (!Array.isArray(loaded) || loaded.length === 0) return sortDonations(SEED_DONATIONS);
-    const cleaned = loaded.filter((d) => d.id !== 'don-tilak-501');
-    return sortDonations(cleaned);
+    if (!Array.isArray(loaded) || loaded.length === 0) return SEED_DONATIONS;
+    const hasTilak = loaded.some((d) => d.donorPhone === '7769053298' || d.donorName === 'TILAK');
+    if (!hasTilak) {
+      const tilakSeed = SEED_DONATIONS.find((d) => d.donorName === 'TILAK');
+      if (tilakSeed) return [tilakSeed, ...loaded];
+    }
+    return loaded;
   }
 
   function parsePayments(): MemberPayment[] {
@@ -340,30 +331,13 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return sanitized;
   }
 
-  function parseMembers(): Member[] {
-    const loaded = safeLocalParse<Member[]>('dm_members', SEED_MEMBERS);
-    if (!Array.isArray(loaded) || loaded.length === 0) return sortMembers(SEED_MEMBERS);
-    const cleaned = loaded.filter((m) => m.id !== 'opiyhksdfjhkjs' && m.fullName !== 'opiyhksdfjhkjs');
-    if (cleaned.length === 0) return sortMembers(SEED_MEMBERS);
-
-    const merged = [...cleaned];
-    for (const seed of SEED_MEMBERS) {
-      if (!merged.some((m) => m.id === seed.id || (m.phone && seed.phone && m.phone.replace(/\D/g, '').slice(-10) === seed.phone.replace(/\D/g, '').slice(-10)))) {
-        merged.push(seed);
-      }
-    }
-    return sortMembers(merged);
-  }
-
-
-
   // State with LocalStorage Persistence
   const [events, setEvents] = useState<MandalEvent[]>(() => parseEvents());
   const [notices, setNotices] = useState<MandalNotice[]>(() => safeLocalParse('dm_notices', SEED_NOTICES));
   const [albums, setAlbums] = useState<GalleryAlbum[]>(() => parseAlbums());
   const [images, setImages] = useState<GalleryImage[]>(() => parseImages());
   const [committee, setCommittee] = useState<CommitteeMember[]>(() => parseCommittee());
-  const [members, setMembers] = useState<Member[]>(() => parseMembers());
+  const [members, setMembers] = useState<Member[]>(() => safeLocalParse('dm_members', SEED_MEMBERS));
   const [donations, setDonations] = useState<Donation[]>(() => parseDonations());
   const [payments, setPayments] = useState<MemberPayment[]>(() => parsePayments());
   const [expenses, setExpenses] = useState<Expense[]>(() => safeLocalParse('dm_expenses', SEED_EXPENSES));
@@ -371,6 +345,13 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => safeLocalParse('dm_audit_logs', []));
   const [festivalConfig, setFestivalConfig] = useState<FestivalConfig>(() => safeLocalParse('dm_festival_config', DEFAULT_FESTIVAL_CONFIG));
   const [heroSlides, setHeroSlides] = useState<HeroSlideItem[]>(() => safeLocalParse('dm_hero_slides', DEFAULT_HERO_SLIDES));
+  const [liveStreamConfig, setLiveStreamConfig] = useState<LiveStreamConfig>(() => {
+    const loaded = safeLocalParse<LiveStreamConfig>('dm_live_stream', DEFAULT_LIVESTREAM_CONFIG);
+    if (loaded && loaded.youtubeUrl === 'https://www.youtube.com/watch?v=5Eqb_-j3FDA') {
+      return { ...loaded, youtubeUrl: '' };
+    }
+    return loaded;
+  });
 
   function safeLocalSet(key: string, data: unknown) {
     try {
@@ -400,14 +381,15 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => { safeLocalSet('dm_audit_logs', auditLogs); }, [auditLogs]);
   useEffect(() => { safeLocalSet('dm_festival_config', festivalConfig); }, [festivalConfig]);
   useEffect(() => { safeLocalSet('dm_hero_slides', heroSlides); }, [heroSlides]);
+  useEffect(() => { safeLocalSet('dm_live_stream', liveStreamConfig); }, [liveStreamConfig]);
 
   // Real-time Firestore Subscriptions for PC-to-Mobile Live Sync
   useEffect(() => {
     const unsubDonations = subscribeToCollection<Donation>(COLLECTIONS.DONATIONS, (cloudItems) => {
-      if (cloudItems && cloudItems.length > 0) setDonations(sortDonations(cloudItems));
+      if (cloudItems && cloudItems.length > 0) setDonations(cloudItems);
     });
     const unsubMembers = subscribeToCollection<Member>(COLLECTIONS.MEMBERS, (cloudItems) => {
-      if (cloudItems && cloudItems.length > 0) setMembers(sortMembers(cloudItems));
+      if (cloudItems && cloudItems.length > 0) setMembers(cloudItems);
     });
     const unsubPayments = subscribeToCollection<MemberPayment>(COLLECTIONS.PAYMENTS, (cloudItems) => {
       if (cloudItems && cloudItems.length > 0) setPayments(cloudItems);
@@ -427,6 +409,12 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const unsubCommittee = subscribeToCollection<CommitteeMember>(COLLECTIONS.COMMITTEE, (cloudItems) => {
       if (cloudItems && cloudItems.length > 0) setCommittee(cloudItems);
     });
+    const unsubLiveStream = subscribeToCollection<LiveStreamConfig>(COLLECTIONS.LIVE_STREAM, (cloudItems) => {
+      if (cloudItems && cloudItems.length > 0) {
+        const doc = cloudItems.find((item) => item.id === 'current') || cloudItems[cloudItems.length - 1];
+        if (doc) setLiveStreamConfig(doc);
+      }
+    });
 
     return () => {
       unsubDonations();
@@ -437,6 +425,7 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       unsubNotices();
       unsubSponsors();
       unsubCommittee();
+      unsubLiveStream();
     };
   }, []);
 
@@ -475,20 +464,20 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createdAt: new Date().toISOString()
     };
 
-    setDonations((prev) => sortDonations([newDonation, ...prev]));
+    setDonations((prev) => [newDonation, ...prev]);
     logAction('donation_record', 'donations', newDonation.id, { amount: newDonation.amount, receiptNumber });
     saveToFirestore(COLLECTIONS.DONATIONS, newDonation);
     return newDonation;
   };
 
   const updateDonation = async (id: string, data: Partial<Donation>) => {
-    setDonations((prev) => sortDonations(prev.map((d) => (d.id === id ? { ...d, ...data } : d))));
+    setDonations((prev) => prev.map((d) => (d.id === id ? { ...d, ...data } : d)));
     const target = donations.find((d) => d.id === id);
     if (target) saveToFirestore(COLLECTIONS.DONATIONS, { ...target, ...data });
   };
 
   const deleteDonation = async (id: string) => {
-    setDonations((prev) => sortDonations(prev.filter((d) => d.id !== id)));
+    setDonations((prev) => prev.filter((d) => d.id !== id));
     deleteFromFirestore(COLLECTIONS.DONATIONS, id);
   };
 
@@ -654,15 +643,7 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const addMember = async (input: Omit<Member, 'id' | 'createdAt' | 'updatedAt' | 'memberNumber'>): Promise<Member> => {
     const currentYear = new Date().getFullYear();
-    const maxNum = members.reduce((max, m) => {
-      const match = (m.memberNumber || '').match(/\d+$/);
-      if (match) {
-        const val = parseInt(match[0], 10);
-        return val > max ? val : max;
-      }
-      return max;
-    }, 0);
-    const count = maxNum + 1;
+    const count = members.length + 1;
     const memberNumber = `DM-${currentYear}-${String(count).padStart(3, '0')}`;
     const newMember: Member = {
       ...input,
@@ -671,21 +652,21 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    setMembers((prev) => sortMembers([...prev, newMember]));
+    setMembers((prev) => [newMember, ...prev]);
     logAction('member_create', 'members', newMember.id, { name: newMember.fullName, memberNumber });
     saveToFirestore(COLLECTIONS.MEMBERS, newMember);
     return newMember;
   };
 
   const updateMember = async (id: string, data: Partial<Member>) => {
-    setMembers((prev) => sortMembers(prev.map((m) => (m.id === id ? { ...m, ...data, updatedAt: new Date().toISOString() } : m))));
+    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, ...data, updatedAt: new Date().toISOString() } : m)));
     logAction('member_update', 'members', id, data);
     const target = members.find((m) => m.id === id);
     if (target) saveToFirestore(COLLECTIONS.MEMBERS, { ...target, ...data });
   };
 
   const deleteMember = async (id: string) => {
-    setMembers((prev) => sortMembers(prev.filter((m) => m.id !== id)));
+    setMembers((prev) => prev.filter((m) => m.id !== id));
     logAction('member_delete', 'members', id, {});
     deleteFromFirestore(COLLECTIONS.MEMBERS, id);
   };
@@ -741,7 +722,7 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const getMemberSummary = (memberId: string, fy: string = MANDAL_CONFIG.currentFinancialYear): MemberFinancialSummary => {
     const member = members.find((m) => m.id === memberId);
     const annualDue = member ? member.annualDueAmount || MANDAL_CONFIG.annualSubscriptionFee : MANDAL_CONFIG.annualSubscriptionFee;
-    
+
     const memberPayments = payments.filter((p) => {
       if (p.financialYear !== fy) return false;
       if (p.memberId) {
@@ -754,7 +735,7 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         p.memberPhone.replace(/\D/g, '').slice(-10) === member.phone.replace(/\D/g, '').slice(-10)
       );
     });
-    
+
     const successfulPayments = memberPayments.filter((p) => p.paymentStatus === 'successful');
     const pendingPayments = memberPayments.filter((p) => p.paymentStatus === 'pending');
 
@@ -859,7 +840,7 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       else expenseCategoryBreakdown['इतर प्रशासकीय खर्च'] += e.amount;
     });
 
-    const MARATHI_MONTH_NAMES = ['जानेवारी','फेब्रुवारी','मार्च','एप्रिल','मे','जून','जुलै','ऑगस्ट','सप्टेंबर','ऑक्टोबर','नोव्हेंबर','डिसेंबर'];
+    const MARATHI_MONTH_NAMES = ['जानेवारी', 'फेब्रुवारी', 'मार्च', 'एप्रिल', 'मे', 'जून', 'जुलै', 'ऑगस्ट', 'सप्टेंबर', 'ऑक्टोबर', 'नोव्हेंबर', 'डिसेंबर'];
     const fyMonthOrder = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
     const monthlyMap: Record<number, number> = {};
     const monthlyExpenseMap: Record<number, number> = {};
@@ -974,7 +955,51 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         festivalConfig,
         heroSlides,
         updateFestivalConfig,
-        updateHeroSlide,
+        addHeroSlide: async (slideData: Omit<HeroSlideItem, 'id'>) => {
+          const newSlide: HeroSlideItem = {
+            ...slideData,
+            id: `slide_${Date.now()}`
+          };
+          const updated = [...heroSlides, newSlide];
+          setHeroSlides(updated);
+          safeLocalSet('dm_hero_slides', updated);
+          logAction('settings_update', 'dm_hero_slides', newSlide.id, newSlide);
+          return newSlide;
+        },
+        updateHeroSlide: async (id: string, data: Partial<HeroSlideItem>) => {
+          const updated = heroSlides.map((slide) => (slide.id === id ? { ...slide, ...data } : slide));
+          setHeroSlides(updated);
+          safeLocalSet('dm_hero_slides', updated);
+          logAction('settings_update', 'dm_hero_slides', id, data);
+        },
+        deleteHeroSlide: async (id: string) => {
+          const updated = heroSlides.filter((slide) => slide.id !== id);
+          setHeroSlides(updated);
+          safeLocalSet('dm_hero_slides', updated);
+          logAction('settings_update', 'dm_hero_slides', id, { deleted: true });
+        },
+        liveStreamConfig,
+        updateLiveStreamConfig: async (data: Partial<LiveStreamConfig>) => {
+          const updated: LiveStreamConfig = {
+            ...liveStreamConfig,
+            ...data,
+            id: 'current',
+            updatedAt: new Date().toISOString()
+          };
+          setLiveStreamConfig(updated);
+          safeLocalSet('dm_live_stream', updated);
+          await saveToFirestore(COLLECTIONS.LIVE_STREAM, updated);
+          logAction('settings_update', COLLECTIONS.LIVE_STREAM, 'current', data);
+        },
+        incrementPranam: async () => {
+          const updated: LiveStreamConfig = {
+            ...liveStreamConfig,
+            pranamCount: (liveStreamConfig.pranamCount || 0) + 1
+          };
+          setLiveStreamConfig(updated);
+          safeLocalSet('dm_live_stream', updated);
+          await saveToFirestore(COLLECTIONS.LIVE_STREAM, updated);
+        },
         getFinancialMetrics,
         getMemberSummary,
         pushLocalDataToCloud: async () => {

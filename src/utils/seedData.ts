@@ -449,6 +449,20 @@ export const SEED_MEMBERS: Member[] = [
 
 export const SEED_DONATIONS: Donation[] = [
   {
+    id: 'don-tilak-501',
+    amount: 501,
+    donorName: 'TILAK',
+    donorPhone: '7769053298',
+    donorCity: 'पुणे',
+    donationType: 'annadaan',
+    donationTypeMarathi: 'अन्नदान व महाप्रसाद देणगी',
+    paymentMethod: 'upi_qr',
+    paymentStatus: 'pending',
+    receiptNumber: 'DM/2026-27/DON-18929',
+    isAnonymous: false,
+    createdAt: new Date().toISOString()
+  },
+  {
     id: 'don-5001',
     amount: 11000,
     donorName: 'Shri. Madhukar Shridharrao Gokhale',

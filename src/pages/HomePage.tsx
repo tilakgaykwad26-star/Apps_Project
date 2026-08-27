@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useMandal, DEFAULT_HERO_SLIDES } from '../context/MandalContext';
+import { LiveStreamCard } from '../components/common/LiveStreamCard';
 import { MANDAL_CONFIG } from '../config/constants';
 import { formatMarathiDate, formatIndianDate, toMarathiDigits } from '../utils/dateUtils';
 import { formatINR } from '../utils/currencyUtils';
@@ -318,6 +319,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenDonateModa
           </div>
         )}
       </section>
+
+      {/* Live Stream Broadcast Section */}
+      <div className="container" style={{ marginTop: '24px' }}>
+        <LiveStreamCard />
+      </div>
 
       {/* 2. Notice Ticker / Urgent Notices */}
       {urgentNotices.length > 0 && (
