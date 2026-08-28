@@ -134,7 +134,7 @@ export const en = {
   member: {
     portalTitle: 'Member Portal',
     loginTitle: 'Member Login',
-    enterPhone: 'Enter Registered Mobile Number',
+    enterPhone: 'Enter your official Member ID',
     getOtp: 'Get OTP',
     enterOtp: 'Enter Received OTP',
     verifyOtp: 'Verify OTP & Login',

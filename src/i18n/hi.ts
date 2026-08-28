@@ -134,7 +134,7 @@ export const hi = {
   member: {
     portalTitle: 'सदस्य पोर्टल',
     loginTitle: 'सदस्य लॉगिन',
-    enterPhone: 'पंजीकृत मोबाइल नंबर दर्ज करें',
+    enterPhone: 'अपना अधिकृत सदस्य आईडी (Member ID) दर्ज करें',
     getOtp: 'OTP प्राप्त करें',
     enterOtp: 'प्राप्त OTP दर्ज करें',
     verifyOtp: 'सत्यापित करें एवं लॉगिन करें',

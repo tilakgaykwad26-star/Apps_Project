@@ -349,8 +349,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    // Search existing registered member by Phone or Member ID
-    const existingMember = findMemberByPhoneOrId(trimmedInput);
+    // Search existing registered member by Member ID ONLY (strictly no phone number)
+    const allMembers = getAllStoredMembers();
+    const existingMember = allMembers.find(
+      (m) =>
+        m.id.toLowerCase() === trimmedInput.toLowerCase() ||
+        (m.memberNumber && m.memberNumber.toLowerCase() === trimmedInput.toLowerCase())
+    );
 
     if (existingMember) {
       // All normal members MUST enter the password '9898'
@@ -376,10 +381,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    // STRICT REJECTION: Unregistered phone or Member ID cannot log in
+    // STRICT REJECTION: Unregistered Member ID cannot log in
     return {
       success: false,
-      message: 'हा मोबाईल नंबर किंवा सभासद आयडी नोंदणीकृत नाही. कृपया आपला नोंदणीकृत मोबाईल नंबर / सभासद आयडी टाका किंवा मंडळ ॲडमिनशी संपर्क साधा.'
+      message: 'हा सभासद आयडी (Member ID) नोंदणीकृत नाही. कृपया आपला अचूक सभासद आयडी टाका किंवा मंडळ ॲडमिनशी संपर्क साधा.'
     };
   };
 

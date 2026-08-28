@@ -146,7 +146,7 @@ export const mr = {
   member: {
     portalTitle: 'सभासद पोर्टल',
     loginTitle: 'सभासद लॉगिन',
-    enterPhone: 'आपला नोंदणीकृत मोबाईल नंबर प्रविष्ट करा',
+    enterPhone: 'आपला अधिकृत सभासद आयडी प्रविष्ट करा',
     getOtp: 'OTP मिळवा',
     enterOtp: 'प्राप्त झालेला OTP टाका',
     verifyOtp: 'सत्यापित करा व लॉगिन व्हा',

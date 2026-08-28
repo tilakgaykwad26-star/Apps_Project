@@ -111,7 +111,7 @@ export const MemberPortalPage: React.FC = () => {
     const inputVal = loginPhone.trim();
     const passVal = loginOtp.trim();
     if (!inputVal) {
-      showError('कृपया आपला नोंदणीकृत मोबाईल नंबर किंवा सभासद आयडी प्रविष्ट करा.');
+      showError('कृपया आपला अधिकृत सभासद आयडी प्रविष्ट करा.');
       return;
     }
     if (!passVal) {
@@ -998,14 +998,14 @@ export const MemberPortalPage: React.FC = () => {
 
             <form onSubmit={handleDirectLogin} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
               <div className="form-group">
-                <label className="form-label form-label-required">सभासद आयडी किंवा मोबाईल नंबर (Member ID / Mobile No.)</label>
+                <label className="form-label form-label-required">सभासद आयडी (Member ID)</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="text"
                     required
                     disabled={isLoggingIn}
                     className="form-input"
-                    placeholder="सभासद आयडी किंवा मोबाईल नंबर प्रविष्ट करा"
+                    placeholder="सभासद आयडी प्रविष्ट करा (Enter Member ID)"
                     value={loginPhone}
                     onChange={(e) => setLoginPhone(e.target.value)}
                   />
