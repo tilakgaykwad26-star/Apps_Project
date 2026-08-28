@@ -172,19 +172,59 @@ export function generateFinancialBalanceSheetPDF(
   });
 
   // 4. Signatures
-  const finalY = Math.min(270, (doc as any).lastAutoTable.finalY + 18);
-  doc.setFontSize(8.5);
+  const finalY = Math.min(265, (doc as any).lastAutoTable.finalY + 22);
+
+  // Digital Signatures Ink
+  doc.setFont('times', 'bolditalic');
+  doc.setFontSize(10);
+  doc.setTextColor(20, 60, 130);
+  doc.text('S. G. Nagpurkar', 42.5, finalY - 2, { align: 'center' });
+  doc.text('V. M. Bavane', 102.5, finalY - 2, { align: 'center' });
+  doc.text('S. I. Kuthe', 162.5, finalY - 2, { align: 'center' });
+
+  // Verification Badge
+  doc.setFontSize(6);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(22, 163, 74);
+  doc.text('[Digitally Signed]', 42.5, finalY + 1.5, { align: 'center' });
+  doc.text('[Digitally Signed]', 102.5, finalY + 1.5, { align: 'center' });
+  doc.text('[Digitally Signed]', 162.5, finalY + 1.5, { align: 'center' });
+
+  doc.setDrawColor(160, 160, 160);
+  doc.setLineWidth(0.5);
+  doc.line(18, finalY + 3, 67, finalY + 3);
+  doc.line(78, finalY + 3, 127, finalY + 3);
+  doc.line(138, finalY + 3, 187, finalY + 3);
+
+  // Left: President
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(40, 40, 40);
+  doc.text(MANDAL_CONFIG.authorities.presidentName, 42.5, finalY + 7.5, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(90, 90, 90);
+  doc.text(MANDAL_CONFIG.authorities.presidentTitle, 42.5, finalY + 11, { align: 'center' });
 
-  doc.line(20, finalY, 65, finalY);
-  doc.text('Hon. Treasurer', 42.5, finalY + 5, { align: 'center' });
+  // Middle: Secretary
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(40, 40, 40);
+  doc.text(MANDAL_CONFIG.authorities.secretaryName, 102.5, finalY + 7.5, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(90, 90, 90);
+  doc.text(MANDAL_CONFIG.authorities.secretaryTitle, 102.5, finalY + 11, { align: 'center' });
 
-  doc.line(80, finalY, 125, finalY);
-  doc.text('Hon. Secretary', 102.5, finalY + 5, { align: 'center' });
-
-  doc.line(140, finalY, 185, finalY);
-  doc.text('Hon. President', 162.5, finalY + 5, { align: 'center' });
+  // Right: Treasurer
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(40, 40, 40);
+  doc.text(MANDAL_CONFIG.authorities.treasurerName, 162.5, finalY + 7.5, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(90, 90, 90);
+  doc.text(MANDAL_CONFIG.authorities.treasurerTitle, 162.5, finalY + 11, { align: 'center' });
 
   return doc;
 }

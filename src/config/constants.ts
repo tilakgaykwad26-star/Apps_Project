@@ -29,6 +29,17 @@ export const MANDAL_CONFIG = {
     micrCode: '441002015',
   },
   annualSubscriptionFee: 1500, // ₹1500 standard annual fee per member
+  authorities: {
+    presidentName: 'Shri. Shubham G. Nagpurkar',
+    presidentNameMarathi: 'श्री. शुभम जी. नागपूरकर',
+    presidentTitle: 'Hon. President',
+    treasurerName: 'Shri. Shekhar I. Kuthe',
+    treasurerNameMarathi: 'श्री. शेखर ई. कुथे',
+    treasurerTitle: 'Hon. Treasurer',
+    secretaryName: 'Shri. Vishwa M. Bavane',
+    secretaryNameMarathi: 'श्री. विश्वा एम. बावणे',
+    secretaryTitle: 'Hon. Secretary'
+  },
   currentFestival: {
     titleMarathi: 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
     datesMarathi: '11 ऑक्टोबर ते 22 ऑक्टोबर 2026',

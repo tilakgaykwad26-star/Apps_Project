@@ -29,7 +29,9 @@ import {
   Settings,
   Search,
   UserCheck,
-  PhoneCall
+  PhoneCall,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
 import { UpiQrPaymentModal } from '../components/common/UpiQrPaymentModal';
@@ -65,6 +67,7 @@ export const MemberPortalPage: React.FC = () => {
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(0);
 
   React.useEffect(() => {
@@ -106,16 +109,21 @@ export const MemberPortalPage: React.FC = () => {
   const handleDirectLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const inputVal = loginPhone.trim();
+    const passVal = loginOtp.trim();
     if (!inputVal) {
       showError('कृपया आपला नोंदणीकृत मोबाईल नंबर किंवा सभासद आयडी प्रविष्ट करा.');
       return;
     }
+    if (!passVal) {
+      showError('कृपया आपला पासवर्ड प्रविष्ट करा.');
+      return;
+    }
     setIsLoggingIn(true);
     try {
-      const result = await loginWithPhone(inputVal, '123456');
+      const result = await loginWithPhone(inputVal, passVal);
       const isSuccess = typeof result === 'boolean' ? result : result.success;
       if (isSuccess) {
-        showSuccess('लॉगिन यशस्वी! आपले सभासद डिजिटल ओळखपत्र व माहिती प्रोफाइल उघडले आहे.');
+        showSuccess('लॉगिन यशस्वी! आपले प्रोफाइल उघडले आहे.');
         setActiveMode('profile');
       } else {
         const msg = typeof result === 'object' && result.message ? result.message : 'लॉगिन अयशस्वी. कृपया प्रविष्ट माहिती तपासा.';
@@ -990,19 +998,54 @@ export const MemberPortalPage: React.FC = () => {
 
             <form onSubmit={handleDirectLogin} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
               <div className="form-group">
-                <label className="form-label form-label-required">मोबाईल नंबर किंवा सभासद आयडी (Mobile No. / Member ID)</label>
+                <label className="form-label form-label-required">सभासद आयडी किंवा मोबाईल नंबर (Member ID / Mobile No.)</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="text"
                     required
                     disabled={isLoggingIn}
                     className="form-input"
-                    placeholder="उदा. 9087643575 किंवा DM-2024-005 / mem-1001"
+                    placeholder="सभासद आयडी किंवा मोबाईल नंबर प्रविष्ट करा"
                     value={loginPhone}
                     onChange={(e) => setLoginPhone(e.target.value)}
                   />
                 </div>
-                <span className="form-hint">नोंदणीकृत १० अंकी मोबाईल नंबर किंवा सभासद आयडी टाका</span>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label form-label-required">पासवर्ड / पिन (Password / Secret PIN)</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    disabled={isLoggingIn}
+                    className="form-input"
+                    placeholder="पासवर्ड प्रविष्ट करा (Enter Password)"
+                    value={loginOtp}
+                    onChange={(e) => setLoginOtp(e.target.value)}
+                    style={{ paddingRight: '42px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--color-text-muted, #666)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: 0
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <button

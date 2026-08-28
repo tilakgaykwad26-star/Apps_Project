@@ -1,9 +1,9 @@
-export type UserRole = 
-  | 'super_admin' 
-  | 'treasurer' 
-  | 'committee_admin' 
-  | 'content_manager' 
-  | 'member' 
+export type UserRole =
+  | 'super_admin'
+  | 'treasurer'
+  | 'committee_admin'
+  | 'content_manager'
+  | 'member'
   | 'guest';
 
 export interface AppUser {

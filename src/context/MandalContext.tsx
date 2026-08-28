@@ -297,14 +297,18 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }
 
   function parseDonations(): Donation[] {
-    const loaded = safeLocalParse<Donation[]>('dm_donations', SEED_DONATIONS);
-    if (!Array.isArray(loaded) || loaded.length === 0) return SEED_DONATIONS;
-    const hasTilak = loaded.some((d) => d.donorPhone === '7769053298' || d.donorName === 'TILAK');
-    if (!hasTilak) {
-      const tilakSeed = SEED_DONATIONS.find((d) => d.donorName === 'TILAK');
-      if (tilakSeed) return [tilakSeed, ...loaded];
-    }
-    return loaded;
+    const loaded = safeLocalParse<Donation[]>('dm_donations', []);
+    if (!Array.isArray(loaded)) return [];
+    const demoIds = new Set(['don-tilak-501', 'don-5001', 'don-5002', 'don-5003', 'don-5004']);
+    return loaded.filter(
+      (d) =>
+        !demoIds.has(d.id) &&
+        !d.receiptNumber?.includes('DON-1021') &&
+        !d.receiptNumber?.includes('DON-1022') &&
+        !d.receiptNumber?.includes('DON-1023') &&
+        !d.receiptNumber?.includes('DON-1024') &&
+        !d.receiptNumber?.includes('DON-18929')
+    );
   }
 
   function parsePayments(): MemberPayment[] {

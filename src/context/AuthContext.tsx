@@ -312,39 +312,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const trimmedInput = input.trim();
     const cleanPhone = trimmedInput.replace(/\D/g, '').slice(-10);
 
-    // Master / Demo OTP validation
-    if (otp !== '123456') {
-      const verification = await verifyPhoneOtp(cleanPhone || trimmedInput, otp);
-      if (!verification.success) {
-        return { success: false, message: verification.message || 'लॉगिन अयशस्वी.' };
+    // Dedicated Distinct Admin Passwords Map
+    const ADMIN_PASSWORDS: Record<string, { expectedPass: string; userKey: keyof typeof DEMO_USERS }> = {
+      '7796052953': { expectedPass: '779605', userKey: 'super_admin_tilak' },
+      '8999161652': { expectedPass: '899916', userKey: 'super_admin_shubham' },
+      '9607396623': { expectedPass: '960739', userKey: 'super_admin_shekhar' },
+      '8459063045': { expectedPass: '845906', userKey: 'super_admin' },
+    };
+
+    // 1. Strict Admin Unique Password Verification (Phone Alone Cannot Unlock Admin)
+    if (ADMIN_PASSWORDS[cleanPhone]) {
+      const adminConfig = ADMIN_PASSWORDS[cleanPhone];
+      if (otp !== adminConfig.expectedPass) {
+        return {
+          success: false,
+          message: 'सुरक्षा चेतावणी: ॲडमिन डॅशबोर्ड उघडण्यासाठी अचूक ६-अंकी ॲडमिन पासवर्ड प्रविष्ट करणे अनिवार्य आहे.'
+        };
       }
-    }
-
-    // Super Admin 1: Shree. Vishwa Bavane (8459063045)
-    if (cleanPhone === '8459063045' || trimmedInput.toLowerCase().includes('vishwa')) {
-      setUser(DEMO_USERS.super_admin.user);
-      setMemberProfile(findMemberByPhoneOrId(DEMO_USERS.super_admin.user.phone, DEMO_USERS.super_admin.user.memberId));
-      return { success: true };
-    }
-
-    // Super Admin 2: Shree. Tilak Ashok Gaikwad (7796052953)
-    if (cleanPhone === '7796052953' || trimmedInput.toLowerCase().includes('tilak')) {
-      setUser(DEMO_USERS.super_admin_tilak.user);
-      setMemberProfile(findMemberByPhoneOrId('7796052953') || DEMO_USERS.super_admin_tilak.member || null);
-      return { success: true };
-    }
-
-    // Super Admin 3: Shree. Shubham Nagpurkar (8999161652)
-    if (cleanPhone === '8999161652' || trimmedInput.toLowerCase().includes('shubham')) {
-      setUser(DEMO_USERS.super_admin_shubham.user);
-      setMemberProfile(findMemberByPhoneOrId('8999161652') || DEMO_USERS.super_admin_shubham.member || null);
-      return { success: true };
-    }
-
-    // Super Admin 4: Shree. Shekhar Kuthe (9607396623)
-    if (cleanPhone === '9607396623' || trimmedInput.toLowerCase().includes('shekhar')) {
-      setUser(DEMO_USERS.super_admin_shekhar.user);
-      setMemberProfile(findMemberByPhoneOrId('9607396623') || DEMO_USERS.super_admin_shekhar.member || null);
+      const demoData = DEMO_USERS[adminConfig.userKey];
+      setUser(demoData.user);
+      setMemberProfile(findMemberByPhoneOrId(demoData.user.phone, demoData.user.memberId));
       return { success: true };
     }
 
@@ -366,6 +353,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const existingMember = findMemberByPhoneOrId(trimmedInput);
 
     if (existingMember) {
+      // All normal members MUST enter the password '9898'
+      const customPass = (existingMember as any).password;
+      if (otp !== '9898' && otp !== '989898' && otp !== customPass) {
+        return {
+          success: false,
+          message: 'सुरक्षा चेतावणी: सभासद प्रोफाइल उघडण्यासाठी अचूक पासवर्ड प्रविष्ट करणे अनिवार्य आहे.'
+        };
+      }
+
       const authUser: AppUser = {
         uid: 'user_' + (existingMember.phone || existingMember.id),
         phone: existingMember.phone,

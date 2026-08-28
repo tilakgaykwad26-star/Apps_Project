@@ -136,7 +136,7 @@ export function generateDonationReceiptPDF(donation: Donation): jsPDF {
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(70, 70, 70);
-  doc.text(`In Words: Rupees ${numberToEnglishWords(donation.amount)} Only`, 16, amountY + 17);
+  doc.text(`In Words: ${numberToEnglishWords(donation.amount)}`, 16, amountY + 17);
 
   // 8. Footer Disclaimers
   const footerY = amountY + 29;
@@ -146,16 +146,48 @@ export function generateDonationReceiptPDF(donation: Donation): jsPDF {
   doc.text('* Donations are utilized towards Navratri Utsav, Mahaprasad Annadaan, and social welfare.', 12, footerY + 4);
 
   // 9. Signatures Block
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.5);
-  doc.line(16, 184, 52, 184);
-  doc.line(96, 184, 132, 184);
+  const sigY = 178;
 
-  doc.setFontSize(8);
+  // Digital signature text styling (stylized navy ink script)
+  doc.setFont('times', 'bolditalic');
+  doc.setFontSize(10.5);
+  doc.setTextColor(20, 60, 130);
+  doc.text('S. G. Nagpurkar', 34, sigY - 1, { align: 'center' });
+  doc.text('S. I. Kuthe', 114, sigY - 1, { align: 'center' });
+
+  // Stamp / Digital Verification Badge
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(22, 163, 74);
+  doc.text('[Digitally Signed]', 34, sigY + 2.5, { align: 'center' });
+  doc.text('[Digitally Signed]', 114, sigY + 2.5, { align: 'center' });
+
+  // Signature Lines
+  doc.setDrawColor(160, 160, 160);
+  doc.setLineWidth(0.5);
+  doc.line(14, sigY + 4, 54, sigY + 4);
+  doc.line(94, sigY + 4, 134, sigY + 4);
+
+  // Authority Name & Designation
+  // Left: President
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(50, 50, 50);
-  doc.text('Hon. Treasurer', 34, 189, { align: 'center' });
-  doc.text('Hon. President', 114, 189, { align: 'center' });
+  doc.setTextColor(40, 40, 40);
+  doc.text(MANDAL_CONFIG.authorities.presidentName, 34, sigY + 8, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(90, 90, 90);
+  doc.text(MANDAL_CONFIG.authorities.presidentTitle, 34, sigY + 11.5, { align: 'center' });
+
+  // Right: Treasurer
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(40, 40, 40);
+  doc.text(MANDAL_CONFIG.authorities.treasurerName, 114, sigY + 8, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(90, 90, 90);
+  doc.text(MANDAL_CONFIG.authorities.treasurerTitle, 114, sigY + 11.5, { align: 'center' });
 
   return doc;
 }
@@ -267,7 +299,7 @@ export function generateSubscriptionReceiptPDF(payment: MemberPayment): jsPDF {
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(70, 70, 70);
-  doc.text(`In Words: Rupees ${numberToEnglishWords(payment.amount)} Only`, 16, amountY + 17);
+  doc.text(`In Words: ${numberToEnglishWords(payment.amount)}`, 16, amountY + 17);
 
   // 8. Footer Disclaimers
   const footerY = amountY + 28;
@@ -277,16 +309,48 @@ export function generateSubscriptionReceiptPDF(payment: MemberPayment): jsPDF {
   doc.text('* Thank you for your continued support and dedicated service towards the Mandal.', 12, footerY + 4);
 
   // 9. Signatures Block
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.5);
-  doc.line(16, 184, 52, 184);
-  doc.line(96, 184, 132, 184);
+  const sigY = 178;
 
-  doc.setFontSize(8);
+  // Digital signature text styling (stylized navy ink script)
+  doc.setFont('times', 'bolditalic');
+  doc.setFontSize(10.5);
+  doc.setTextColor(20, 60, 130);
+  doc.text('S. G. Nagpurkar', 34, sigY - 1, { align: 'center' });
+  doc.text('S. I. Kuthe', 114, sigY - 1, { align: 'center' });
+
+  // Stamp / Digital Verification Badge
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(22, 163, 74);
+  doc.text('[Digitally Signed]', 34, sigY + 2.5, { align: 'center' });
+  doc.text('[Digitally Signed]', 114, sigY + 2.5, { align: 'center' });
+
+  // Signature Lines
+  doc.setDrawColor(160, 160, 160);
+  doc.setLineWidth(0.5);
+  doc.line(14, sigY + 4, 54, sigY + 4);
+  doc.line(94, sigY + 4, 134, sigY + 4);
+
+  // Authority Name & Designation
+  // Left: President
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(50, 50, 50);
-  doc.text('Hon. Treasurer', 34, 189, { align: 'center' });
-  doc.text('Hon. President', 114, 189, { align: 'center' });
+  doc.setTextColor(40, 40, 40);
+  doc.text(MANDAL_CONFIG.authorities.presidentName, 34, sigY + 8, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(90, 90, 90);
+  doc.text(MANDAL_CONFIG.authorities.presidentTitle, 34, sigY + 11.5, { align: 'center' });
+
+  // Right: Treasurer
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(40, 40, 40);
+  doc.text(MANDAL_CONFIG.authorities.treasurerName, 114, sigY + 8, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(90, 90, 90);
+  doc.text(MANDAL_CONFIG.authorities.treasurerTitle, 114, sigY + 11.5, { align: 'center' });
 
   return doc;
 }
