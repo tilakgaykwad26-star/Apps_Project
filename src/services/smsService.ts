@@ -210,3 +210,136 @@ export async function verifyPhoneOtp(
 
   return { success: false, message: 'प्रविष्ट केलेला OTP चुकीचा आहे. कृपया पुन्हा तपासा.' };
 }
+
+/**
+ * Get / Set Stored Fast2SMS API Key from LocalStorage
+ */
+export function getStoredFast2SmsKey(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('dm_fast2sms_key') || '';
+}
+
+export function setStoredFast2SmsKey(key: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('dm_fast2sms_key', key.trim());
+}
+
+/**
+ * Format Marathi text message for Mandal Event Notification
+ */
+export function formatEventNotificationMessage(params: {
+  mandalName?: string;
+  title: string;
+  dateStr: string;
+  timeStr: string;
+  venue: string;
+  chiefGuest?: string;
+  customNote?: string;
+}): string {
+  const mandal = params.mandalName || 'श्री दुर्गा माता उत्सव मंडळ';
+  let msg = `🚩 *${mandal}* 🚩\n\n`;
+  msg += `📌 *कार्यक्रम:* ${params.title}\n`;
+  msg += `📅 *तारीख:* ${params.dateStr}\n`;
+  msg += `⏰ *वेळ:* ${params.timeStr}\n`;
+  msg += `📍 *ठिकाण:* ${params.venue}\n`;
+  if (params.chiefGuest) {
+    msg += `👥 *प्रमुख उपस्थिती:* ${params.chiefGuest}\n`;
+  }
+  if (params.customNote) {
+    msg += `\n📝 ${params.customNote}\n`;
+  } else {
+    msg += `\n🙏 सर्व भाविक, सभासद व ग्रामस्थांनी सपरिवार उपस्थित राहावे ही नम्र विनंती!\n`;
+  }
+  return msg.trim();
+}
+
+/**
+ * Send Broadcast SMS to list of phone numbers
+ */
+export async function sendBroadcastSms(
+  phones: string[],
+  message: string
+): Promise<{ success: boolean; message: string; recipientCount: number; isRealSms: boolean }> {
+  const cleanPhones = phones
+    .map((p) => p.replace(/\D/g, '').slice(-10))
+    .filter((p) => p.length === 10);
+
+  // Remove duplicates
+  const uniquePhones = Array.from(new Set(cleanPhones));
+
+  if (uniquePhones.length === 0) {
+    return {
+      success: false,
+      message: 'कोणताही वैध मोबाईल नंबर सापडला नाही.',
+      recipientCount: 0,
+      isRealSms: false
+    };
+  }
+
+  const storedApiKey = getStoredFast2SmsKey();
+
+  try {
+    const res = await fetch('/api/send-sms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        phones: uniquePhones,
+        message,
+        apiKey: storedApiKey || undefined
+      })
+    });
+
+    const data = await res.json();
+    const isReal = !!data.isRealSms;
+    const count = data.recipientCount || uniquePhones.length;
+
+    console.log(`%c[SMS Gateway] 📢 Broadcast sent to ${count} recipient(s):`, 'color: #10B981; font-weight: bold;');
+    console.log(message);
+
+    return {
+      success: !!data.success,
+      message: data.message || (isReal
+        ? `एकूण ${count} मोबाईल नंबरवर थेट Real SMS पाठवण्यात आला!`
+        : `एकूण ${count} मोबाईल नंबरवर SMS यशस्वीरीत्या पाठवला (Simulated Demo Mode).`),
+      recipientCount: count,
+      isRealSms: isReal
+    };
+  } catch (error) {
+    console.warn('[SMS Service] Broadcast SMS Error:', error);
+    return {
+      success: false,
+      message: 'SMS पाठवताना त्रुटी आली. कृपया नेटवर्क किंवा API की तपासा.',
+      recipientCount: 0,
+      isRealSms: false
+    };
+  }
+}
+
+/**
+ * Send Event SMS Notification to Recipients
+ */
+export async function sendEventNotificationSms(params: {
+  phones: string[];
+  eventTitle: string;
+  eventDate: string;
+  eventTime: string;
+  eventVenue: string;
+  chiefGuest?: string;
+  customNote?: string;
+  mandalName?: string;
+}): Promise<{ success: boolean; message: string; recipientCount: number; isRealSms: boolean }> {
+  const smsText = formatEventNotificationMessage({
+    mandalName: params.mandalName,
+    title: params.eventTitle,
+    dateStr: params.eventDate,
+    timeStr: params.eventTime,
+    venue: params.eventVenue,
+    chiefGuest: params.chiefGuest,
+    customNote: params.customNote
+  });
+
+  return await sendBroadcastSms(params.phones, smsText);
+}
+

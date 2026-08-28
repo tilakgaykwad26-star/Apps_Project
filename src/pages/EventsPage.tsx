@@ -12,16 +12,18 @@ import {
   Sparkles,
   ExternalLink,
   Search,
-  UserCheck
+  UserCheck,
+  Share2
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
 import { EmptyState } from '../components/common/EmptyState';
 import { useNotification } from '../context/NotificationContext';
 import { isValidIndianPhone } from '../utils/validationUtils';
+import { formatEventNotificationMessage } from '../services/smsService';
 
 export const EventsPage: React.FC = () => {
   const { language, t, isMarathi } = useLanguage();
-  const { events, recordRsvp } = useMandal();
+  const { events, recordRsvp, festivalConfig } = useMandal();
   const { showSuccess, showError } = useNotification();
 
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
@@ -275,18 +277,48 @@ export const EventsPage: React.FC = () => {
                     </span>
                   )}
 
-                  {evt.venueMapUrl && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <a
-                      href={evt.venueMapUrl}
+                      href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                        formatEventNotificationMessage({
+                          mandalName: festivalConfig?.titleMarathi || 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
+                          title: isMarathi ? evt.titleMarathi || evt.title : evt.title,
+                          dateStr: formatMarathiDate(evt.startDate),
+                          timeStr: evt.timeString,
+                          venue: isMarathi ? evt.venueMarathi || evt.venue : evt.venue,
+                          chiefGuest: evt.chiefGuest
+                        })
+                      )}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.8rem' }}
+                      style={{
+                        backgroundColor: '#25D366',
+                        color: '#ffffff',
+                        borderColor: '#25D366',
+                        fontSize: '0.8rem',
+                        gap: '5px',
+                        fontWeight: 600
+                      }}
+                      title="कार्यक्रमाची माहिती WhatsApp वर पाठवा"
                     >
-                      <ExternalLink size={14} />
-                      <span>{t.common.directions}</span>
+                      <Share2 size={14} />
+                      <span>WhatsApp वर पाठवा</span>
                     </a>
-                  )}
+
+                    {evt.venueMapUrl && (
+                      <a
+                        href={evt.venueMapUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.8rem' }}
+                      >
+                        <ExternalLink size={14} />
+                        <span>{t.common.directions}</span>
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

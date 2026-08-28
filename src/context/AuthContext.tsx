@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AppUser, UserRole, Member } from '../types/auth';
-import { SEED_MEMBERS } from '../utils/seedData';
 import { sendOtpToPhone, verifyPhoneOtp } from '../services/smsService';
 
 export interface SendOtpResult {
@@ -42,8 +41,7 @@ const DEMO_USERS: Record<string, { user: AppUser; member?: Member }> = {
       memberId: 'comm-3',
       createdAt: '2024-01-01T00:00:00.000Z',
       lastLoginAt: new Date().toISOString()
-    },
-    member: SEED_MEMBERS[0]
+    }
   },
   super_admin_tilak: {
     user: {
@@ -168,8 +166,7 @@ const DEMO_USERS: Record<string, { user: AppUser; member?: Member }> = {
       memberId: 'mem-1001',
       createdAt: '2024-01-01T00:00:00.000Z',
       lastLoginAt: new Date().toISOString()
-    },
-    member: SEED_MEMBERS[0]
+    }
   },
   guest: {
     user: {
@@ -190,31 +187,15 @@ function getAllStoredMembers(): Member[] {
     const saved = localStorage.getItem('dm_members');
     if (saved) {
       const parsed: Member[] = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const existingMap = new Map(parsed.map((m) => [m.id, m]));
-        // Merge missing seed members into list
-        let updated = false;
-        SEED_MEMBERS.forEach((sm) => {
-          if (!existingMap.has(sm.id)) {
-            existingMap.set(sm.id, sm);
-            updated = true;
-          }
-        });
-        const result = Array.from(existingMap.values());
-        if (updated) {
-          try {
-            localStorage.setItem('dm_members', JSON.stringify(result));
-          } catch (e) {
-            // ignore
-          }
-        }
-        return result;
+      if (Array.isArray(parsed)) {
+        const seedIds = new Set(['comm-1', 'comm-2', 'comm-3', 'comm-4', 'comm-5', 'comm-6', 'comm-7', 'comm-8', 'comm-9', 'comm-10', 'mem-test-1']);
+        return parsed.filter((m) => !seedIds.has(m.id) && !m.id.startsWith('comm-'));
       }
     }
   } catch (e) {
     console.warn('[AuthContext] Failed to load dm_members', e);
   }
-  return SEED_MEMBERS;
+  return [];
 }
 
 function findMemberByPhoneOrId(query?: string, fallbackMemberId?: string): Member | null {

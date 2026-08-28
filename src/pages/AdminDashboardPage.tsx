@@ -14,6 +14,13 @@ import {
   sendDonationReceiptWhatsApp,
   sendSubscriptionReceiptWhatsApp
 } from '../services/receiptService';
+import {
+  sendBroadcastSms,
+  sendEventNotificationSms,
+  formatEventNotificationMessage,
+  getStoredFast2SmsKey,
+  setStoredFast2SmsKey
+} from '../services/smsService';
 import { DonationType } from '../types/donation';
 import { Expense, ExpenseCategory } from '../types/expense';
 import { useNotification } from '../context/NotificationContext';
@@ -55,7 +62,12 @@ import {
   Coins,
   FileText,
   Sparkles,
-  Radio
+  Radio,
+  MessageSquare,
+  Share2,
+  Smartphone,
+  Key,
+  CheckCircle2
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
 import { extractYouTubeId } from '../types/livestream';
@@ -229,6 +241,17 @@ export const AdminDashboardPage: React.FC = () => {
   const [newEventChiefGuest, setNewEventChiefGuest] = useState('');
   const [newEventHighlights, setNewEventHighlights] = useState('');
   const [newEventMapUrl, setNewEventMapUrl] = useState('');
+  const [sendSmsOnCreateEvent, setSendSmsOnCreateEvent] = useState(false);
+
+  // Send Event SMS Notification State
+  const [isSendEventSmsModalOpen, setIsSendEventSmsModalOpen] = useState(false);
+  const [smsEventTarget, setSmsEventTarget] = useState<any>(null);
+  const [smsRecipientType, setSmsRecipientType] = useState<'all_members' | 'all_donors' | 'custom_phones'>('all_members');
+  const [smsCustomPhones, setSmsCustomPhones] = useState('');
+  const [smsCustomNote, setSmsCustomNote] = useState('');
+  const [smsApiKeyInput, setSmsApiKeyInput] = useState(() => getStoredFast2SmsKey());
+  const [isSendingEventSms, setIsSendingEventSms] = useState(false);
+  const [isSavedKeyBannerVisible, setIsSavedKeyBannerVisible] = useState(false);
 
   // Edit Event State
   const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
@@ -497,6 +520,123 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  const handleOpenSendEventSms = (evt: any) => {
+    setSmsEventTarget(evt);
+    setSmsRecipientType('all_members');
+    setSmsCustomPhones('');
+    setSmsCustomNote('');
+    setSmsApiKeyInput(getStoredFast2SmsKey());
+    setIsSavedKeyBannerVisible(false);
+    setIsSendEventSmsModalOpen(true);
+  };
+
+  const handleSaveFast2SmsKey = () => {
+    setStoredFast2SmsKey(smsApiKeyInput);
+    setIsSavedKeyBannerVisible(true);
+    showSuccess('Fast2SMS API Key सेव्ह करण्यात आली!');
+    setTimeout(() => setIsSavedKeyBannerVisible(false), 3000);
+  };
+
+  const handleSendEventSmsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!smsEventTarget) return;
+
+    let targetPhones: string[] = [];
+
+    if (smsRecipientType === 'all_members') {
+      targetPhones = members.map((m) => m.phone).filter(Boolean);
+    } else if (smsRecipientType === 'all_donors') {
+      targetPhones = donations.map((d) => d.donorPhone).filter(Boolean);
+    } else if (smsRecipientType === 'custom_phones') {
+      targetPhones = smsCustomPhones
+        .split(/[\n,;]+/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+    }
+
+    if (targetPhones.length === 0) {
+      showError('कृपया किमान एक वैध मोबाईल नंबर निवडा किंवा प्रविष्ट करा.');
+      return;
+    }
+
+    setIsSendingEventSms(true);
+    try {
+      const eventDateStr = formatMarathiDate(smsEventTarget.startDate);
+      const res = await sendEventNotificationSms({
+        phones: targetPhones,
+        eventTitle: smsEventTarget.titleMarathi || smsEventTarget.title,
+        eventDate: eventDateStr,
+        eventTime: smsEventTarget.timeString || '',
+        eventVenue: smsEventTarget.venueMarathi || smsEventTarget.venue || '',
+        chiefGuest: smsEventTarget.chiefGuest,
+        customNote: smsCustomNote.trim() || undefined,
+        mandalName: festivalConfig.titleMarathi || 'सार्वजनिक बाल दुर्गा उत्सव मंडळ'
+      });
+
+      if (res.success) {
+        showSuccess(res.message);
+        setIsSendEventSmsModalOpen(false);
+      } else {
+        showError(res.message || 'SMS पाठवताना त्रुटी आली.');
+      }
+    } catch (err) {
+      showError('SMS पाठवताना अनपेक्षित त्रुटी आली.');
+    } finally {
+      setIsSendingEventSms(false);
+    }
+  };
+
+  const handleInstant1ClickBroadcast = async (evt: any) => {
+    const memberPhones = members.map((m) => m.phone).filter(Boolean);
+    const eventDateStr = formatMarathiDate(evt.startDate);
+    const eventTitle = evt.titleMarathi || evt.title;
+    const msg = formatEventNotificationMessage({
+      mandalName: festivalConfig.titleMarathi || 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
+      title: eventTitle,
+      dateStr: eventDateStr,
+      timeStr: evt.timeString || '',
+      venue: evt.venueMarathi || evt.venue || '',
+      chiefGuest: evt.chiefGuest
+    });
+
+    // 1. Background SMS to all members
+    if (memberPhones.length > 0) {
+      sendBroadcastSms(memberPhones, msg).catch((err) => console.warn('[Instant Broadcast SMS]', err));
+    }
+
+    // 2. Add an instant In-App Notice so every member visiting the site/app immediately sees the alert
+    try {
+      await addNotice({
+        title: `🚩 आगामी कार्यक्रम: ${eventTitle}`,
+        titleMarathi: `🚩 आगामी कार्यक्रम: ${eventTitle}`,
+        message: `${eventDateStr} रोजी ${evt.timeString || ''} वाजता ${evt.venueMarathi || evt.venue || ''} येथे '${eventTitle}' संपन्न होत आहे. सर्व भाविकांनी सपरिवार उपस्थित राहावे!`,
+        priority: 'urgent',
+        publishedBy: 'मंडळ व्यवस्थापन',
+        isPublished: true,
+        expiresAt: evt.startDate || new Date(Date.now() + 7 * 86400000).toISOString()
+      });
+    } catch (e) {
+      console.warn('[Instant Notice]', e);
+    }
+
+    // 3. Open WhatsApp / Native Share with prefilled event message
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+    if (typeof navigator !== 'undefined' && (navigator as any).share) {
+      try {
+        await (navigator as any).share({
+          title: eventTitle,
+          text: msg
+        });
+      } catch (err) {
+        window.open(waUrl, '_blank');
+      }
+    } else {
+      window.open(waUrl, '_blank');
+    }
+
+    showSuccess(`⚡ '${eventTitle}' ची सूचना एका क्लिकमध्ये सर्व ${memberPhones.length} सदस्यांना पाठवली गेली!`);
+  };
+
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEventTitle.trim()) return;
@@ -508,7 +648,7 @@ export const AdminDashboardPage: React.FC = () => {
         .map((h) => h.trim())
         .filter(Boolean);
 
-      await addEvent({
+      const eventPayload = {
         title: newEventTitle.trim(),
         titleMarathi: newEventTitle.trim(),
         description: newEventDesc.trim() || 'शारदीय नवरात्रोत्सव विशेष कार्यक्रम',
@@ -519,14 +659,37 @@ export const AdminDashboardPage: React.FC = () => {
         venue: newEventVenue,
         venueMarathi: newEventVenue,
         coverImageUrl: finalImage,
-        status: 'upcoming',
+        status: 'upcoming' as const,
         isRsvpEnabled: newEventRsvp,
         rsvpLimit: 500,
         chiefGuest: newEventChiefGuest.trim() || undefined,
         highlights: parsedHighlights.length > 0 ? parsedHighlights : undefined,
         venueMapUrl: newEventMapUrl.trim() || undefined
-      });
+      };
+
+      await addEvent(eventPayload);
       showSuccess('नवीन कार्यक्रम यशस्वीरित्या जोडला गेला!');
+
+      // Auto-send SMS notification if checked
+      if (sendSmsOnCreateEvent) {
+        const memberPhones = members.map((m) => m.phone).filter(Boolean);
+        if (memberPhones.length > 0) {
+          sendEventNotificationSms({
+            phones: memberPhones,
+            eventTitle: eventPayload.titleMarathi,
+            eventDate: formatMarathiDate(eventPayload.startDate),
+            eventTime: eventPayload.timeString,
+            eventVenue: eventPayload.venueMarathi,
+            chiefGuest: eventPayload.chiefGuest,
+            mandalName: festivalConfig.titleMarathi || 'सार्वजनिक बाल दुर्गा उत्सव मंडळ'
+          }).then((smsRes) => {
+            if (smsRes.success) {
+              showSuccess(`📢 ${memberPhones.length} सदस्यांना कार्यक्रमाचा SMS पाठवला!`);
+            }
+          });
+        }
+      }
+
       setIsAddEventModalOpen(false);
       setNewEventTitle('');
       setNewEventDesc('');
@@ -535,6 +698,7 @@ export const AdminDashboardPage: React.FC = () => {
       setNewEventChiefGuest('');
       setNewEventHighlights('');
       setNewEventMapUrl('');
+      setSendSmsOnCreateEvent(false);
     } catch (err) {
       showError('कार्यक्रम जोडताना त्रुटी आली.');
     }
@@ -3506,10 +3670,44 @@ export const AdminDashboardPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <span className="badge badge-maroon" style={{ fontSize: '0.75rem' }}>
                     {toMarathiDigits(evt.rsvpCount)} RSVPs
                   </span>
+                  <button
+                    onClick={() => handleInstant1ClickBroadcast(evt)}
+                    className="btn btn-sm"
+                    style={{
+                      background: 'linear-gradient(135deg, #E65100 0%, #D97706 100%)',
+                      color: '#ffffff',
+                      padding: '7px 14px',
+                      gap: '6px',
+                      fontSize: '0.83rem',
+                      fontWeight: 700,
+                      border: 'none',
+                      borderRadius: 'var(--radius-md)',
+                      boxShadow: '0 2px 6px rgba(230, 81, 0, 0.35)',
+                      cursor: 'pointer'
+                    }}
+                    title="एका क्लिकमध्ये SMS + WhatsApp + ॲप सूचना सर्व सदस्यांना पाठवा"
+                  >
+                    <Sparkles size={14} />
+                    <span>⚡ १-क्लिक सर्व सदस्यांना पाठवा ({members.length})</span>
+                  </button>
+                  <button
+                    onClick={() => handleOpenSendEventSms(evt)}
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      padding: '6px 11px',
+                      gap: '5px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600
+                    }}
+                    title="कस्टम SMS पर्याय निवडा"
+                  >
+                    <MessageSquare size={14} />
+                    <span>कस्टम SMS</span>
+                  </button>
                   <button
                     onClick={() => handleOpenEditEvent(evt)}
                     className="btn btn-secondary btn-sm"
@@ -4105,6 +4303,27 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           )}
 
+          <div style={{
+            padding: '10px 14px',
+            backgroundColor: '#F0FDFA',
+            border: '1px solid #99F6E4',
+            borderRadius: 'var(--radius-md)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <input
+              type="checkbox"
+              id="sendSmsCheckbox"
+              checked={sendSmsOnCreateEvent}
+              onChange={(e) => setSendSmsOnCreateEvent(e.target.checked)}
+              style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0D9488' }}
+            />
+            <label htmlFor="sendSmsCheckbox" style={{ cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: '#0F766E' }}>
+              📢 कार्यक्रम प्रसिद्ध होताच सर्व सदस्यांना ({members.length}) थेट SMS सूचना पाठवा
+            </label>
+          </div>
+
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => setIsAddEventModalOpen(false)} className="btn btn-secondary">
               {t.admin.actions.cancel}
@@ -4287,6 +4506,282 @@ export const AdminDashboardPage: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal: Send Event SMS Notification */}
+      <Modal
+        isOpen={isSendEventSmsModalOpen}
+        onClose={() => {
+          setIsSendEventSmsModalOpen(false);
+          setSmsEventTarget(null);
+        }}
+        title="📢 कार्यक्रम SMS सूचना पाठवा (Send Event SMS Broadcast)"
+      >
+        {smsEventTarget && (
+          <form onSubmit={handleSendEventSmsSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            {/* Event Summary Card */}
+            <div style={{
+              backgroundColor: 'var(--color-maroon-50)',
+              border: '1px solid var(--color-maroon-200)',
+              borderRadius: 'var(--radius-md)',
+              padding: '12px 16px'
+            }}>
+              <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--color-maroon-800)', marginBottom: '4px' }}>
+                🚩 {smsEventTarget.titleMarathi || smsEventTarget.title}
+              </div>
+              <div style={{ fontSize: '0.84rem', color: 'var(--color-text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                <span>📅 <strong>दिनांक:</strong> {formatMarathiDate(smsEventTarget.startDate)}</span>
+                <span>⏰ <strong>वेळ:</strong> {smsEventTarget.timeString}</span>
+                <span>📍 <strong>स्थळ:</strong> {smsEventTarget.venueMarathi || smsEventTarget.venue}</span>
+              </div>
+              {smsEventTarget.chiefGuest && (
+                <div style={{ fontSize: '0.82rem', color: '#15803D', marginTop: '4px', fontWeight: 600 }}>
+                  👥 प्रमुख उपस्थिती: {smsEventTarget.chiefGuest}
+                </div>
+              )}
+            </div>
+
+            {/* Recipient Target Selection */}
+            <div className="form-group">
+              <label className="form-label form-label-required" style={{ fontWeight: 700 }}>
+                प्राप्तकर्ता गट निवडा (Target Recipients):
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '6px' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 12px',
+                  border: smsRecipientType === 'all_members' ? '2px solid var(--color-maroon-700)' : '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: smsRecipientType === 'all_members' ? 'var(--color-maroon-50)' : '#fff',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="smsRecipient"
+                    checked={smsRecipientType === 'all_members'}
+                    onChange={() => setSmsRecipientType('all_members')}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>👥 सर्व नोंदणीकृत सदस्य</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>({members.filter(m => m.phone).length} मोबाईल नंबर)</div>
+                  </div>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 12px',
+                  border: smsRecipientType === 'all_donors' ? '2px solid var(--color-maroon-700)' : '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: smsRecipientType === 'all_donors' ? 'var(--color-maroon-50)' : '#fff',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="smsRecipient"
+                    checked={smsRecipientType === 'all_donors'}
+                    onChange={() => setSmsRecipientType('all_donors')}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>❤️ सर्व देणगीदार</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>({donations.filter(d => d.donorPhone).length} मोबाईल नंबर)</div>
+                  </div>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 12px',
+                  border: smsRecipientType === 'custom_phones' ? '2px solid var(--color-maroon-700)' : '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: smsRecipientType === 'custom_phones' ? 'var(--color-maroon-50)' : '#fff',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="smsRecipient"
+                    checked={smsRecipientType === 'custom_phones'}
+                    onChange={() => setSmsRecipientType('custom_phones')}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>✏️ विशिष्ट मोबाईल नंबर</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>कस्टम नंबर प्रविष्ट करा</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Custom Phone Numbers Input */}
+            {smsRecipientType === 'custom_phones' && (
+              <div className="form-group">
+                <label className="form-label form-label-required">मोबाईल नंबर (प्रत्येक नंबर नवीन ओळीत किंवा स्वल्पविरामाने वेगळा करा)</label>
+                <textarea
+                  rows={3}
+                  required
+                  className="form-textarea"
+                  placeholder={'9822012345\n9423012345\n8888012345'}
+                  value={smsCustomPhones}
+                  onChange={(e) => setSmsCustomPhones(e.target.value)}
+                />
+              </div>
+            )}
+
+            {/* Custom Note or Additional Announcement */}
+            <div className="form-group">
+              <label className="form-label">विशेष सूचना किंवा टीप (पर्यायी)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="उदा. महाप्रसाद वाटप दुपारी ०१:०० वाजता सुरू होईल."
+                value={smsCustomNote}
+                onChange={(e) => setSmsCustomNote(e.target.value)}
+              />
+            </div>
+
+            {/* Live Message Preview */}
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="form-label" style={{ fontWeight: 700, margin: 0 }}>
+                  📱 SMS संदेश पूर्वदृश्य (Message Preview):
+                </label>
+                <span className="badge badge-gold" style={{ fontSize: '0.75rem' }}>
+                  {smsRecipientType === 'all_members'
+                    ? `${members.filter(m => m.phone).length} सदस्यांना जाणार`
+                    : smsRecipientType === 'all_donors'
+                    ? `${donations.filter(d => d.donorPhone).length} देणगीदारांना जाणार`
+                    : `${smsCustomPhones.split(/[\n,;]+/).filter((p) => p.trim().length >= 10).length} नंबरना जाणार`}
+                </span>
+              </div>
+              <div style={{
+                backgroundColor: '#1E293B',
+                color: '#E2E8F0',
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md)',
+                fontFamily: 'monospace',
+                fontSize: '0.85rem',
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.5,
+                border: '1px solid #334155'
+              }}>
+                {formatEventNotificationMessage({
+                  mandalName: festivalConfig.titleMarathi || 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
+                  title: smsEventTarget.titleMarathi || smsEventTarget.title,
+                  dateStr: formatMarathiDate(smsEventTarget.startDate),
+                  timeStr: smsEventTarget.timeString || '',
+                  venue: smsEventTarget.venueMarathi || smsEventTarget.venue || '',
+                  chiefGuest: smsEventTarget.chiefGuest,
+                  customNote: smsCustomNote.trim() || undefined
+                })}
+              </div>
+            </div>
+
+            {/* Fast2SMS API Key Section */}
+            <div style={{
+              padding: '10px 14px',
+              backgroundColor: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '0.82rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-text-primary)' }}>
+                  <Key size={14} color="#D97706" /> Fast2SMS Live SMS API Key (पर्यायी / Real SMS Gateway):
+                </span>
+                {smsApiKeyInput ? (
+                  <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>🟢 Real SMS Active</span>
+                ) : (
+                  <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>⚪ Simulated Mode</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="password"
+                  className="form-input"
+                  style={{ fontSize: '0.82rem', padding: '6px 10px', height: '34px' }}
+                  placeholder="Fast2SMS API Key प्रविष्ट करा..."
+                  value={smsApiKeyInput}
+                  onChange={(e) => setSmsApiKeyInput(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveFast2SmsKey}
+                  className="btn btn-secondary btn-sm"
+                  style={{ height: '34px', padding: '0 12px', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+                >
+                  की जतन करा
+                </button>
+              </div>
+              {isSavedKeyBannerVisible && (
+                <div style={{ color: '#16A34A', fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>
+                  ✓ API Key यशस्वीरित्या जतन झाली!
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-sm)', flexWrap: 'wrap' }}>
+              {/* WhatsApp Share Button */}
+              <a
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                  formatEventNotificationMessage({
+                    mandalName: festivalConfig.titleMarathi || 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
+                    title: smsEventTarget.titleMarathi || smsEventTarget.title,
+                    dateStr: formatMarathiDate(smsEventTarget.startDate),
+                    timeStr: smsEventTarget.timeString || '',
+                    venue: smsEventTarget.venueMarathi || smsEventTarget.venue || '',
+                    chiefGuest: smsEventTarget.chiefGuest,
+                    customNote: smsCustomNote.trim() || undefined
+                  })
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary"
+                style={{
+                  backgroundColor: '#25D366',
+                  color: '#ffffff',
+                  borderColor: '#25D366',
+                  fontWeight: 600,
+                  fontSize: '0.86rem',
+                  gap: '6px'
+                }}
+              >
+                <Share2 size={16} />
+                <span>WhatsApp वर शेअर करा</span>
+              </a>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSendEventSmsModalOpen(false);
+                    setSmsEventTarget(null);
+                  }}
+                  className="btn btn-secondary"
+                >
+                  {t.admin.actions.cancel}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingEventSms}
+                  className="btn btn-primary"
+                  style={{
+                    backgroundColor: '#0D9488',
+                    borderColor: '#0D9488',
+                    fontWeight: 700,
+                    gap: '6px'
+                  }}
+                >
+                  <Smartphone size={16} />
+                  <span>{isSendingEventSms ? 'SMS पाठवत आहे...' : '📲 SMS ब्रॉडकास्ट पाठवा'}</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {/* Modal: Create Notice */}

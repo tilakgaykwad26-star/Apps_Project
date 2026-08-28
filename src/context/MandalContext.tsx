@@ -16,7 +16,6 @@ import {
   SEED_NOTICES,
   SEED_ALBUMS,
   SEED_IMAGES,
-  SEED_MEMBERS,
   SEED_DONATIONS,
   SEED_PAYMENTS,
   SEED_SPONSORS,
@@ -296,6 +295,13 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }
 
+  function parseMembers(): Member[] {
+    const loaded = safeLocalParse<Member[]>('dm_members', []);
+    if (!Array.isArray(loaded)) return [];
+    const seedIds = new Set(['comm-1', 'comm-2', 'comm-3', 'comm-4', 'comm-5', 'comm-6', 'comm-7', 'comm-8', 'comm-9', 'comm-10', 'mem-test-1']);
+    return loaded.filter((m) => !seedIds.has(m.id) && !m.id.startsWith('comm-'));
+  }
+
   function parseDonations(): Donation[] {
     const loaded = safeLocalParse<Donation[]>('dm_donations', []);
     if (!Array.isArray(loaded)) return [];
@@ -312,13 +318,17 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }
 
   function parsePayments(): MemberPayment[] {
-    const loaded = safeLocalParse<MemberPayment[]>('dm_payments', SEED_PAYMENTS);
-    if (!Array.isArray(loaded)) return SEED_PAYMENTS;
+    const loaded = safeLocalParse<MemberPayment[]>('dm_payments', []);
+    if (!Array.isArray(loaded)) return [];
 
+    const seedIds = new Set(['comm-1', 'comm-2', 'comm-3', 'comm-4', 'comm-5', 'comm-6', 'comm-7', 'comm-8', 'comm-9', 'comm-10', 'mem-test-1']);
     const memberFYTotals: Record<string, number> = {};
     const sanitized: MemberPayment[] = [];
 
     for (const p of loaded) {
+      if (p.memberId && seedIds.has(p.memberId)) continue;
+      if (p.id && (p.id.includes('pay-1001') || p.id.includes('pay-1002') || p.id.includes('pay-1003') || p.id.includes('pay-1004') || p.id.includes('pay-1005'))) continue;
+
       if (p.paymentType === 'annual_subscription') {
         const phoneKey = p.memberPhone ? p.memberPhone.replace(/\D/g, '').slice(-10) : '';
         const key = `${p.memberId || phoneKey}_${p.financialYear}`;
@@ -341,7 +351,7 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [albums, setAlbums] = useState<GalleryAlbum[]>(() => parseAlbums());
   const [images, setImages] = useState<GalleryImage[]>(() => parseImages());
   const [committee, setCommittee] = useState<CommitteeMember[]>(() => parseCommittee());
-  const [members, setMembers] = useState<Member[]>(() => safeLocalParse('dm_members', SEED_MEMBERS));
+  const [members, setMembers] = useState<Member[]>(() => parseMembers());
   const [donations, setDonations] = useState<Donation[]>(() => parseDonations());
   const [payments, setPayments] = useState<MemberPayment[]>(() => parsePayments());
   const [expenses, setExpenses] = useState<Expense[]>(() => safeLocalParse('dm_expenses', SEED_EXPENSES));
