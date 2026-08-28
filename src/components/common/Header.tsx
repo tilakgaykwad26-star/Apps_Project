@@ -3,7 +3,6 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMandal } from '../../context/MandalContext';
 import { MANDAL_CONFIG } from '../../config/constants';
-import { UserRole } from '../../types/auth';
 import {
   Globe,
   User,
@@ -30,22 +29,12 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
   const { language, setLanguage, t } = useLanguage();
-  const { user, role, switchRoleForDemo, logout, isAuthenticated, isTreasurer, isSuperAdmin, isCommitteeAdmin } = useAuth();
+  const { user, logout, isAuthenticated, isTreasurer, isSuperAdmin, isCommitteeAdmin } = useAuth();
   const { liveStreamConfig } = useMandal();
 
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
-  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-
-  const roleLabels: Record<UserRole, string> = {
-    super_admin: '👑 Super Admin',
-    treasurer: '💰 खजिनदार (Treasurer)',
-    committee_admin: '📋 कार्यकारणी (Committee)',
-    content_manager: '📢 Content Manager',
-    member: '👤 सभासद (Member)',
-    guest: 'सार्वजनिक (Guest)'
-  };
 
   const navItems = [
     { key: 'home', label: t.nav.home, icon: Home },
@@ -81,75 +70,6 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {/* Quick Role Switcher for Testing/Demo */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
-              style={{
-                background: 'rgba(212, 175, 55, 0.25)',
-                border: '1px solid #D4AF37',
-                borderRadius: 'var(--radius-xs)',
-                color: '#FAF7F2',
-                padding: '2px 8px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-              title="भूमिका बदला (RBAC Switcher)"
-            >
-              <ShieldCheck size={12} color="#D4AF37" />
-              <span>{roleLabels[role]}</span>
-              <ChevronDown size={12} />
-            </button>
-
-            {isRoleDropdownOpen && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '4px',
-                backgroundColor: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                boxShadow: 'var(--shadow-xl)',
-                padding: '4px',
-                minWidth: '220px',
-                zIndex: 1500
-              }}>
-                <div style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--color-text-muted)', borderBottom: '1px solid var(--color-border)' }}>
-                  परीक्षणासाठी भूमिका निवडा (Demo RBAC):
-                </div>
-                {(['super_admin', 'member', 'guest'] as UserRole[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => {
-                      switchRoleForDemo(r);
-                      setIsRoleDropdownOpen(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '8px 12px',
-                      fontSize: '0.82rem',
-                      background: role === r ? 'var(--color-maroon-50)' : 'transparent',
-                      color: role === r ? 'var(--color-maroon-700)' : 'var(--color-text-primary)',
-                      fontWeight: role === r ? 700 : 500,
-                      border: 'none',
-                      borderRadius: 'var(--radius-xs)',
-                      cursor: 'pointer',
-                      display: 'block'
-                    }}
-                  >
-                    {roleLabels[r]} {role === r ? '✓' : ''}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Language Selector */}
           <div style={{ position: 'relative' }}>
             <button
@@ -537,9 +457,11 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
             </div>
 
             <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                सध्याची भूमिका: <strong>{roleLabels[role]}</strong>
-              </div>
+              {isAuthenticated && user && (
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-maroon-800)', fontWeight: 600 }}>
+                  {user.displayName}
+                </div>
+              )}
               {isAuthenticated ? (
                 <button
                   onClick={() => { logout(); setIsMobileDrawerOpen(false); }}
