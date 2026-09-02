@@ -343,3 +343,41 @@ export async function sendEventNotificationSms(params: {
   return await sendBroadcastSms(params.phones, smsText);
 }
 
+/**
+ * Format Marathi text message for Mandal Notice Notification
+ */
+export function formatNoticeNotificationMessage(params: {
+  mandalName?: string;
+  title: string;
+  message: string;
+  priority?: string;
+}): string {
+  const mandal = params.mandalName || 'श्री दुर्गा माता उत्सव मंडळ';
+  const priorityBadge = params.priority === 'urgent' ? '🚨 [अति-महत्त्वाचे]' : '📢 [सूचना]';
+  let msg = `🚩 *${mandal}* 🚩\n${priorityBadge}\n\n`;
+  msg += `📌 *विषय:* ${params.title}\n\n`;
+  msg += `📝 *मजकूर:* ${params.message}\n\n`;
+  msg += `🙏 - मंडळ व्यवस्थापन, चोप / गडचिरोली`;
+  return msg.trim();
+}
+
+/**
+ * Send Notice SMS Notification to Recipients
+ */
+export async function sendNoticeNotificationSms(params: {
+  phones: string[];
+  noticeTitle: string;
+  noticeMessage: string;
+  priority?: string;
+  mandalName?: string;
+}): Promise<{ success: boolean; message: string; recipientCount: number; isRealSms: boolean }> {
+  const smsText = formatNoticeNotificationMessage({
+    mandalName: params.mandalName,
+    title: params.noticeTitle,
+    message: params.noticeMessage,
+    priority: params.priority
+  });
+
+  return await sendBroadcastSms(params.phones, smsText);
+}
+

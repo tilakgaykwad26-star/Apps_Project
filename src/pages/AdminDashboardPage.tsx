@@ -17,7 +17,9 @@ import {
 import {
   sendBroadcastSms,
   sendEventNotificationSms,
+  sendNoticeNotificationSms,
   formatEventNotificationMessage,
+  formatNoticeNotificationMessage,
   getStoredFast2SmsKey,
   setStoredFast2SmsKey
 } from '../services/smsService';
@@ -273,6 +275,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [newNoticeTitle, setNewNoticeTitle] = useState('');
   const [newNoticeMessage, setNewNoticeMessage] = useState('');
   const [newNoticePriority, setNewNoticePriority] = useState<any>('important');
+  const [sendSmsOnCreateNotice, setSendSmsOnCreateNotice] = useState(false);
 
   const [isAddAlbumModalOpen, setIsAddAlbumModalOpen] = useState(false);
   const [newAlbumTitle, setNewAlbumTitle] = useState('');
@@ -704,12 +707,46 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  const handleInstantNoticeBroadcast = async (n: any) => {
+    const memberPhones = members.map((m) => m.phone).filter(Boolean);
+    const noticeTitle = n.titleMarathi || n.title;
+    const noticeMsg = n.messageMarathi || n.message;
+    const smsText = formatNoticeNotificationMessage({
+      mandalName: festivalConfig?.titleMarathi || 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
+      title: noticeTitle,
+      message: noticeMsg,
+      priority: n.priority
+    });
+
+    // 1. Background SMS to all members
+    if (memberPhones.length > 0) {
+      sendBroadcastSms(memberPhones, smsText).catch((err) => console.warn('[Instant Notice SMS]', err));
+    }
+
+    // 2. Open WhatsApp Share
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(smsText)}`;
+    if (typeof navigator !== 'undefined' && (navigator as any).share) {
+      try {
+        await (navigator as any).share({
+          title: noticeTitle,
+          text: smsText
+        });
+      } catch (err) {
+        window.open(waUrl, '_blank');
+      }
+    } else {
+      window.open(waUrl, '_blank');
+    }
+
+    showSuccess(`⚡ '${noticeTitle}' ची सूचना एका क्लिकमध्ये सर्व ${memberPhones.length} सदस्यांना SMS द्वारे पाठवली गेली!`);
+  };
+
   const handleCreateNotice = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNoticeTitle.trim()) return;
 
     try {
-      await addNotice({
+      const noticePayload = {
         title: newNoticeTitle.trim(),
         titleMarathi: newNoticeTitle.trim(),
         message: newNoticeMessage.trim(),
@@ -717,11 +754,37 @@ export const AdminDashboardPage: React.FC = () => {
         priority: newNoticePriority,
         isPublished: true,
         publishedBy: 'प्रशासक मंडळ'
-      });
-      showSuccess('सूचना प्रसिद्ध करण्यात आली व सदस्यांना पाठवण्यात आली!');
+      };
+
+      await addNotice(noticePayload);
+
+      // Auto-send Real SMS notification to all registered members if checked
+      if (sendSmsOnCreateNotice) {
+        const memberPhones = members.map((m) => m.phone).filter(Boolean);
+        if (memberPhones.length > 0) {
+          sendNoticeNotificationSms({
+            phones: memberPhones,
+            noticeTitle: noticePayload.titleMarathi,
+            noticeMessage: noticePayload.messageMarathi,
+            priority: noticePayload.priority,
+            mandalName: festivalConfig?.titleMarathi || 'सार्वजनिक बाल दुर्गा उत्सव मंडळ'
+          }).then((smsRes) => {
+            if (smsRes.success) {
+              showSuccess(`📢 सर्व ${smsRes.recipientCount || memberPhones.length} नोंदणीकृत सभासदांना थेट Real SMS पाठवला!`);
+            } else {
+              showError(smsRes.message || 'SMS पाठवताना त्रुटी आली.');
+            }
+          }).catch((err) => {
+            console.warn('[Notice Real SMS Error]', err);
+          });
+        }
+      }
+
+      showSuccess('सूचना प्रसिद्ध करण्यात आली!');
       setIsAddNoticeModalOpen(false);
       setNewNoticeTitle('');
       setNewNoticeMessage('');
+      setSendSmsOnCreateNotice(false);
     } catch (err) {
       showError('सूचना प्रसिद्ध करताना त्रुटी आली.');
     }
@@ -3756,8 +3819,8 @@ export const AdminDashboardPage: React.FC = () => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {notices.map((n) => (
-              <div key={n.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '14px 18px' }}>
-                <div>
+              <div key={n.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '14px 18px', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '240px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className={`badge ${n.priority === 'urgent' ? 'badge-danger' : n.priority === 'important' ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.72rem' }}>
                       {n.priority.toUpperCase()}
@@ -3766,22 +3829,79 @@ export const AdminDashboardPage: React.FC = () => {
                       {isMarathi ? n.titleMarathi || n.title : n.title}
                     </span>
                   </div>
+                  {n.message && (
+                    <div style={{ fontSize: '0.84rem', color: 'var(--color-text-secondary)', marginTop: '4px', whiteSpace: 'pre-line', maxHeight: '60px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {isMarathi ? n.messageMarathi || n.message : n.message}
+                    </div>
+                  )}
                   <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
                     दिनांक: {formatIndianDate(n.publishedAt)} | प्रसिद्धी: {n.publishedBy}
                   </div>
                 </div>
 
-                <button
-                  onClick={() => {
-                    if (confirm(t.admin.actions.confirmDelete)) {
-                      deleteNotice(n.id);
-                      showSuccess('सूचना हटवली गेली.');
-                    }
-                  }}
-                  style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
-                >
-                  <Trash2 size={18} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => handleInstantNoticeBroadcast(n)}
+                    className="btn btn-sm"
+                    style={{
+                      background: 'linear-gradient(135deg, #E65100 0%, #D97706 100%)',
+                      color: '#ffffff',
+                      padding: '7px 14px',
+                      gap: '6px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      border: 'none',
+                      borderRadius: 'var(--radius-md)',
+                      boxShadow: '0 2px 6px rgba(230, 81, 0, 0.3)',
+                      cursor: 'pointer'
+                    }}
+                    title="एका क्लिकमध्ये Real SMS सर्व सदस्यांना पाठवा"
+                  >
+                    <Sparkles size={14} />
+                    <span>⚡ १-क्लिक SMS सर्व सदस्यांना ({members.filter(m => m.phone).length})</span>
+                  </button>
+
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                      formatNoticeNotificationMessage({
+                        mandalName: festivalConfig?.titleMarathi || 'सार्वजनिक बाल दुर्गा उत्सव मंडळ',
+                        title: n.titleMarathi || n.title,
+                        message: n.messageMarathi || n.message,
+                        priority: n.priority
+                      })
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      backgroundColor: '#25D366',
+                      borderColor: '#25D366',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      gap: '4px',
+                      padding: '6px 10px',
+                      fontSize: '0.8rem'
+                    }}
+                    title="WhatsApp वर शेअर करा"
+                  >
+                    <Send size={13} />
+                    <span>WhatsApp</span>
+                  </a>
+
+                  <button
+                    onClick={() => {
+                      if (confirm(t.admin.actions.confirmDelete)) {
+                        deleteNotice(n.id);
+                        showSuccess('सूचना हटवली गेली.');
+                      }
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ color: 'var(--color-danger)', padding: '6px 10px' }}
+                    title="सूचना हटवा"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -4826,6 +4946,39 @@ export const AdminDashboardPage: React.FC = () => {
               <option value="important">महत्त्वाची सूचना (Important)</option>
               <option value="normal">सर्वसाधारण (Normal)</option>
             </select>
+          </div>
+
+          {/* Real SMS Broadcast Checkbox for Registered Members */}
+          <div style={{
+            padding: '12px 14px',
+            backgroundColor: '#F0FDFA',
+            border: '1px solid #99F6E4',
+            borderRadius: 'var(--radius-md)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+          }}>
+            <label htmlFor="sendNoticeSmsCheckbox" style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              cursor: 'pointer',
+              margin: 0
+            }}>
+              <input
+                type="checkbox"
+                id="sendNoticeSmsCheckbox"
+                checked={sendSmsOnCreateNotice}
+                onChange={(e) => setSendSmsOnCreateNotice(e.target.checked)}
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0D9488' }}
+              />
+              <span style={{ fontSize: '0.92rem', fontWeight: 700, color: '#0F766E' }}>
+                📢 सर्व नोंदणीकृत सभासदांना थेट Real SMS पाठवा ({members.filter(m => m.phone).length} सभासद)
+              </span>
+            </label>
+            <div style={{ fontSize: '0.78rem', color: '#0D9488', paddingLeft: '28px' }}>
+              हा पर्याय निवडल्यास ही सूचना प्रसिद्ध होताच सर्व नोंदणीकृत सभासदांच्या मोबाईल नंबरवर थेट Real SMS पाठवला जाईल.
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>

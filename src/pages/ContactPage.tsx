@@ -12,13 +12,15 @@ import {
   Sparkles,
   Share2,
   CheckCircle,
-  MessageCircle
+  MessageCircle,
+  Youtube,
+  Instagram
 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 
 export const ContactPage: React.FC = () => {
   const { language, t, isMarathi } = useLanguage();
-  const { committee } = useMandal();
+  const { committee, festivalConfig } = useMandal();
   const { showSuccess, showError } = useNotification();
 
   const [senderName, setSenderName] = useState('');
@@ -93,19 +95,19 @@ export const ContactPage: React.FC = () => {
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '4px solid var(--color-saffron-500)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--color-saffron-50)', color: 'var(--color-saffron-600)' }}>
-              <Mail size={20} />
+              <Share2 size={20} />
             </div>
-            <h3 style={{ fontSize: '1.05rem', color: 'var(--color-maroon-800)' }}>ईमेल व सोशल मीडिया</h3>
+            <h3 style={{ fontSize: '1.05rem', color: 'var(--color-maroon-800)' }}>सोशल मीडिया</h3>
           </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>पत्रव्यवहार व अधिकृत अपडेट्स</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
-            <a href={`mailto:${MANDAL_CONFIG.email}`} className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }}>
-              <Mail size={14} color="var(--color-saffron-600)" />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{MANDAL_CONFIG.email}</span>
-            </a>
-            <a href={MANDAL_CONFIG.socialMedia.instagram} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }}>
-              <ExternalLink size={14} color="#E1306C" />
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>अधिकृत अपडेट्स व चॅनल</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+            <a href={festivalConfig?.instagramUrl || MANDAL_CONFIG.socialMedia.instagram} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', gap: '8px' }}>
+              <Instagram size={15} color="#E1306C" />
               <span>Instagram: @ig_aaibhawani_official</span>
+            </a>
+            <a href={festivalConfig?.youtubeUrl || MANDAL_CONFIG.socialMedia.youtube} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', gap: '8px' }}>
+              <Youtube size={16} color="#FF0000" />
+              <span>YouTube: @durgamata-26</span>
             </a>
           </div>
         </div>

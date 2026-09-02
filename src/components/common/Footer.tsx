@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { MANDAL_CONFIG } from '../../config/constants';
-import { MapPin, Phone, Mail, QrCode, ExternalLink, Heart } from 'lucide-react';
+import { MapPin, Phone, Mail, QrCode, ExternalLink, Heart, Youtube, Instagram } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (view: string) => void;
@@ -90,13 +90,58 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   <a href={`tel:${MANDAL_CONFIG.phoneSecondary.replace(/[^0-9+]/g, '')}`} style={{ color: '#FAF7F2', textDecoration: 'underline' }}>{MANDAL_CONFIG.phoneSecondary}</a>
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <Mail size={16} color="#FF9800" style={{ flexShrink: 0 }} />
-                <span>{MANDAL_CONFIG.email}</span>
-              </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
                 <QrCode size={16} color="#D4AF37" style={{ flexShrink: 0 }} />
                 <span><strong>UPI ID:</strong> {MANDAL_CONFIG.officialUpiId}</span>
+              </div>
+
+              {/* Social Media Links in Footer */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px', alignItems: 'center' }}>
+                <a
+                  href={MANDAL_CONFIG.socialMedia.youtube}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: 'rgba(255, 0, 0, 0.15)',
+                    border: '1px solid rgba(255, 0, 0, 0.4)',
+                    color: '#FF4D4D',
+                    padding: '4px 10px',
+                    borderRadius: '16px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    textDecoration: 'none'
+                  }}
+                  title="YouTube चॅनेल पहा"
+                >
+                  <Youtube size={14} color="#FF0000" />
+                  <span>YouTube</span>
+                </a>
+
+                <a
+                  href={MANDAL_CONFIG.socialMedia.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: 'rgba(225, 48, 108, 0.15)',
+                    border: '1px solid rgba(225, 48, 108, 0.4)',
+                    color: '#FF6B9D',
+                    padding: '4px 10px',
+                    borderRadius: '16px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    textDecoration: 'none'
+                  }}
+                  title="Instagram पेज पहा"
+                >
+                  <Instagram size={14} color="#E1306C" />
+                  <span>Instagram</span>
+                </a>
               </div>
             </div>
           </div>

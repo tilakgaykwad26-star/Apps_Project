@@ -63,6 +63,9 @@ export interface FestivalConfig {
   descriptionMarathi: string;
   descriptionEnglish: string;
   sliderIntervalSeconds?: number;
+  email?: string;
+  instagramUrl?: string;
+  youtubeUrl?: string;
 }
 
 export interface HeroSlideItem {

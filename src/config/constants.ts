@@ -17,7 +17,7 @@ export const MANDAL_CONFIG = {
   socialMedia: {
     instagram: 'https://www.instagram.com/ig_aaibhawani_official?igsh=OGRjcjRsbmZwNWI2',
     facebook: 'https://facebook.com/durgamandalchop',
-    youtube: 'https://youtube.com/@durgamandalchop',
+    youtube: 'https://www.youtube.com/@durgamata-26',
     whatsappCommunity: 'https://chat.whatsapp.com/sample-durga-mandal-chop',
   },
   bankAccount: {
