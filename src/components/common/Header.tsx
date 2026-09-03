@@ -19,8 +19,10 @@ import {
   PhoneCall,
   Menu,
   X,
-  Radio
+  Radio,
+  Users
 } from 'lucide-react';
+import { useLivePresence } from '../../services/livePresenceService';
 
 interface HeaderProps {
   currentView: string;
@@ -31,6 +33,10 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
   const { language, setLanguage, t } = useLanguage();
   const { user, logout, isAuthenticated, isTreasurer, isSuperAdmin, isCommitteeAdmin } = useAuth();
   const { liveStreamConfig } = useMandal();
+
+  const realActiveViewers = useLivePresence(Boolean(liveStreamConfig?.isLive));
+  const baseOffset = liveStreamConfig?.baseViewers && liveStreamConfig.baseViewers > 1 ? (liveStreamConfig.baseViewers - 1) : 0;
+  const totalLiveViewers = realActiveViewers + baseOffset;
 
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -48,7 +54,12 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
   ];
 
   if (liveStreamConfig?.isLive) {
-    navItems.unshift({ key: 'home', label: '🔴 LIVE', icon: Radio, highlight: true });
+    navItems.unshift({
+      key: 'home',
+      label: `🔴 LIVE (${totalLiveViewers})`,
+      icon: Radio,
+      highlight: true
+    });
   }
 
   if (isSuperAdmin || isTreasurer || isCommitteeAdmin) {

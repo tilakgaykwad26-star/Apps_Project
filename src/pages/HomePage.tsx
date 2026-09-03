@@ -18,12 +18,15 @@ import {
   ChevronRight,
   ChevronLeft,
   MapPin,
-  Clock,
-  ArrowRight,
   CheckCircle,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Radio,
+  Users,
+  Clock,
+  ArrowRight
 } from 'lucide-react';
+import { useLivePresence } from '../services/livePresenceService';
 
 interface HomePageProps {
   onNavigate: (view: string) => void;
@@ -32,7 +35,11 @@ interface HomePageProps {
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenDonateModal }) => {
   const { language, t, isMarathi } = useLanguage();
-  const { events, notices, albums, committee, activeSponsors, heroSlides, festivalConfig } = useMandal();
+  const { events, notices, albums, committee, activeSponsors, heroSlides, festivalConfig, liveStreamConfig } = useMandal();
+
+  const realActiveViewers = useLivePresence(Boolean(liveStreamConfig?.isLive));
+  const baseOffset = liveStreamConfig?.baseViewers && liveStreamConfig.baseViewers > 1 ? (liveStreamConfig.baseViewers - 1) : 0;
+  const totalLiveViewers = realActiveViewers + baseOffset;
 
   const upcomingEvents = events.filter((e) => e.status === 'upcoming').slice(0, 2);
   const urgentNotices = notices.filter((n) => n.isPublished && (n.priority === 'urgent' || n.priority === 'important')).slice(0, 3);
@@ -207,6 +214,46 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenDonateModa
           /* MODE B: STANDARD TEXT + BACKGROUND BANNER */
           <div className="container" style={{ position: 'relative', zIndex: 2, width: '100%' }}>
             <div key={currentSlide.id} className="hero-slide-enter" style={{ maxWidth: '820px' }}>
+              
+              {/* Prominent Live Broadcast Active Bar */}
+              {liveStreamConfig?.isLive && (
+                <div
+                  onClick={() => {
+                    const el = document.getElementById('live-stream-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.95) 0%, rgba(153, 27, 27, 0.98) 100%)',
+                    border: '2px solid rgba(254, 202, 202, 0.85)',
+                    borderRadius: '30px',
+                    padding: '8px 20px',
+                    marginBottom: '16px',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 25px rgba(220, 38, 38, 0.7), 0 4px 14px rgba(0,0,0,0.4)',
+                    animation: 'pulse 2s infinite',
+                    color: '#FFFFFF',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 900, fontSize: '0.9rem', letterSpacing: '0.5px' }}>
+                    <Radio size={18} className="animate-pulse" color="#FFFFFF" />
+                    🔴 थेट प्रक्षेपण चालू आहे (LIVE)
+                  </span>
+                  <span style={{ width: '1px', height: '16px', backgroundColor: 'rgba(255,255,255,0.4)' }} />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, color: '#A7F3D0' }}>
+                    <span className="live-green-radar" style={{ width: '9px', height: '9px' }} />
+                    <Users size={15} color="#34D399" />
+                    <span><strong>{totalLiveViewers}</strong> भाविक थेट पाहत आहेत (Active Now)</span>
+                  </span>
+                  <span style={{ fontSize: '0.82rem', color: '#FDE68A', fontWeight: 800, textDecoration: 'underline', marginLeft: '4px' }}>
+                    येथे क्लिक करून थेट पहा ▶
+                  </span>
+                </div>
+              )}
+
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -263,6 +310,30 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenDonateModa
               </p>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+                {liveStreamConfig?.isLive && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('live-stream-section');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="btn btn-danger btn-lg"
+                    style={{
+                      fontSize: '1.05rem',
+                      fontWeight: 800,
+                      padding: '0.8rem 1.8rem',
+                      gap: '8px',
+                      boxShadow: '0 0 25px rgba(220, 38, 38, 0.7)',
+                      backgroundColor: '#DC2626',
+                      borderColor: '#EF4444',
+                      color: '#FFFFFF'
+                    }}
+                  >
+                    <Radio size={20} className="animate-pulse" />
+                    <span>🔴 थेट आरती व दर्शन (🟢 {totalLiveViewers} ॲक्टिव्ह)</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => handleActionClick(currentSlide.btn1ActionKey)}
                   className="btn btn-saffron btn-lg"
@@ -321,7 +392,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenDonateModa
       </section>
 
       {/* Live Stream Broadcast Section */}
-      <div className="container" style={{ marginTop: '24px' }}>
+      <div id="live-stream-section" className="container" style={{ marginTop: '24px' }}>
         <LiveStreamCard />
       </div>
 
