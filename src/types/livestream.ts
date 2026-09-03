@@ -5,6 +5,7 @@ export interface LiveStreamConfig {
   youtubeUrl: string;
   description?: string;
   pranamCount: number;
+  baseViewers?: number;
   updatedAt?: string;
 }
 
@@ -15,6 +16,7 @@ export const DEFAULT_LIVESTREAM_CONFIG: LiveStreamConfig = {
   youtubeUrl: '',
   description: 'मंडळाची दैनिक संध्या आरती व सांस्कृतिक कार्यक्रम थेट पहा.',
   pranamCount: 108,
+  baseViewers: 145,
   updatedAt: new Date().toISOString()
 };
 

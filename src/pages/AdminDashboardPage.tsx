@@ -73,6 +73,7 @@ import {
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
 import { extractYouTubeId } from '../types/livestream';
+import { useLivePresence } from '../services/livePresenceService';
 
 export const AdminDashboardPage: React.FC = () => {
   const { language, t, isMarathi } = useLanguage();
@@ -150,15 +151,20 @@ export const AdminDashboardPage: React.FC = () => {
   const [liveStreamTitle, setLiveStreamTitle] = useState(liveStreamConfig?.title || 'सार्वजनिक बाल दुर्गा उत्सव - थेट प्रक्षेपण (Live Stream)');
   const [liveStreamUrl, setLiveStreamUrl] = useState(liveStreamConfig?.youtubeUrl || '');
   const [liveStreamDesc, setLiveStreamDesc] = useState(liveStreamConfig?.description || 'मंडळाची दैनिक संध्या आरती व सांस्कृतिक कार्यक्रम थेट पहा.');
+  const [liveStreamViewers, setLiveStreamViewers] = useState<number>(liveStreamConfig?.baseViewers || 145);
   const [isSavingLiveStream, setIsSavingLiveStream] = useState(false);
+
+  // Real-time active devices/screens currently connected
+  const realActiveViewers = useLivePresence(Boolean(liveStreamConfig?.isLive), 'प्रशासक (Admin)');
 
   useEffect(() => {
     if (liveStreamConfig) {
       if (liveStreamConfig.title) setLiveStreamTitle(liveStreamConfig.title);
       if (liveStreamConfig.youtubeUrl !== undefined) setLiveStreamUrl(liveStreamConfig.youtubeUrl);
       if (liveStreamConfig.description !== undefined) setLiveStreamDesc(liveStreamConfig.description);
+      if (liveStreamConfig.baseViewers !== undefined) setLiveStreamViewers(liveStreamConfig.baseViewers);
     }
-  }, [liveStreamConfig?.youtubeUrl, liveStreamConfig?.title, liveStreamConfig?.description]);
+  }, [liveStreamConfig?.youtubeUrl, liveStreamConfig?.title, liveStreamConfig?.description, liveStreamConfig?.baseViewers]);
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<string>('overview');
@@ -3284,33 +3290,58 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
 
               {/* Master Toggle Button */}
-              <button
-                type="button"
-                onClick={async () => {
-                  const nextState = !liveStreamConfig?.isLive;
-                  await updateLiveStreamConfig({
-                    isLive: nextState,
-                    youtubeUrl: liveStreamUrl.trim(),
-                    title: liveStreamTitle.trim() || 'सार्वजनिक बाल दुर्गा उत्सव - थेट प्रक्षेपण',
-                    description: liveStreamDesc.trim()
-                  });
-                  if (nextState) {
-                    showSuccess('🔴 थेट प्रक्षेपण यशस्वीरित्या सुरू झाले! सर्व सभासदांना Home Page वर दिसेल.');
-                  } else {
-                    showSuccess('थेट प्रक्षेपण बंद करण्यात आले.');
-                  }
-                }}
-                className={`btn ${liveStreamConfig?.isLive ? 'btn-danger' : 'btn-saffron'} btn-lg`}
-                style={{
-                  fontSize: '1rem',
-                  fontWeight: 800,
-                  padding: '12px 24px',
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: liveStreamConfig?.isLive ? '0 4px 14px rgba(220, 38, 38, 0.4)' : '0 4px 14px rgba(245, 158, 11, 0.3)'
-                }}
-              >
-                {liveStreamConfig?.isLive ? '⏹️ Live Stream बंद करा' : '🔴 LIVE Streaming चालू करा'}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                {liveStreamConfig?.isLive && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    backgroundColor: '#FEE2E2',
+                    border: '1px solid #FCA5A5',
+                    color: '#991B1B',
+                    fontWeight: 700,
+                    fontSize: '0.88rem'
+                  }}>
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
+                    </span>
+                    <Users size={16} />
+                    <span>🟢 रिअल-टाईम: <strong>{realActiveViewers}</strong> ॲक्टिव्ह भाविक (एकूण: {realActiveViewers + ((liveStreamConfig?.baseViewers && liveStreamConfig.baseViewers > 1) ? (liveStreamConfig.baseViewers - 1) : 0)})</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const nextState = !liveStreamConfig?.isLive;
+                    await updateLiveStreamConfig({
+                      isLive: nextState,
+                      youtubeUrl: liveStreamUrl.trim(),
+                      title: liveStreamTitle.trim() || 'सार्वजनिक बाल दुर्गा उत्सव - थेट प्रक्षेपण',
+                      description: liveStreamDesc.trim(),
+                      baseViewers: Number(liveStreamViewers) || 145
+                    });
+                    if (nextState) {
+                      showSuccess('🔴 थेट प्रक्षेपण यशस्वीरित्या सुरू झाले! सर्व सभासदांना Home Page वर दिसेल.');
+                    } else {
+                      showSuccess('थेट प्रक्षेपण बंद करण्यात आले.');
+                    }
+                  }}
+                  className={`btn ${liveStreamConfig?.isLive ? 'btn-danger' : 'btn-saffron'} btn-lg`}
+                  style={{
+                    fontSize: '1rem',
+                    fontWeight: 800,
+                    padding: '12px 24px',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: liveStreamConfig?.isLive ? '0 4px 14px rgba(220, 38, 38, 0.4)' : '0 4px 14px rgba(245, 158, 11, 0.3)'
+                  }}
+                >
+                  {liveStreamConfig?.isLive ? '⏹️ Live Stream बंद करा' : '🔴 LIVE Streaming चालू करा'}
+                </button>
+              </div>
             </div>
 
             {/* Form */}
@@ -3322,9 +3353,10 @@ export const AdminDashboardPage: React.FC = () => {
                   isLive: liveStreamConfig?.isLive ?? true,
                   title: liveStreamTitle.trim() || 'सार्वजनिक बाल दुर्गा उत्सव - थेट प्रक्षेपण',
                   youtubeUrl: liveStreamUrl.trim(),
-                  description: liveStreamDesc.trim()
+                  description: liveStreamDesc.trim(),
+                  baseViewers: Number(liveStreamViewers) || 145
                 });
-                showSuccess('थेट प्रक्षेपणाची माहिती यशस्वीरित्या सेव्ह केली!');
+                showSuccess('थेट प्रक्षेपणाची माहिती व प्रेक्षक संख्या यशस्वीरित्या सेव्ह केली!');
               } catch {
                 showError('माहिती सेव्ह करताना त्रुटी आली.');
               } finally {
@@ -3375,18 +3407,39 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="form-label" style={{ fontWeight: 700 }}>
-                  थेट प्रक्षेपणाचे नाव (Stream Title)
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="e.g. शारदीय नवरात्रोत्सव - दैनिक संध्या महाआरती सोहळा"
-                  value={liveStreamTitle}
-                  onChange={(e) => setLiveStreamTitle(e.target.value)}
-                  style={{ fontSize: '0.92rem' }}
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 700 }}>
+                    थेट प्रक्षेपणाचे नाव (Stream Title)
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. शारदीय नवरात्रोत्सव - दैनिक संध्या महाआरती सोहळा"
+                    value={liveStreamTitle}
+                    onChange={(e) => setLiveStreamTitle(e.target.value)}
+                    style={{ fontSize: '0.92rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Users size={16} color="var(--color-saffron-600)" />
+                    थेट प्रेक्षक संख्या (Live Viewers Count)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="form-control"
+                    placeholder="e.g. 145"
+                    value={liveStreamViewers}
+                    onChange={(e) => setLiveStreamViewers(Math.max(1, parseInt(e.target.value) || 0))}
+                    style={{ fontSize: '0.92rem' }}
+                  />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    थेट प्रक्षेपण सुरू असताना ॲपवर दिसणारे लाईव्ह प्रेक्षक संख्या
+                  </span>
+                </div>
               </div>
 
               <div>
@@ -3403,9 +3456,14 @@ export const AdminDashboardPage: React.FC = () => {
                 />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px' }}>
-                <div style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>🙏 एकूण प्रणाम / नमन संख्या: <strong>{liveStreamConfig?.pranamCount || 0}</strong></span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', paddingTop: '10px' }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '4px 10px', borderRadius: '8px', fontWeight: 600 }}>
+                    👥 थेट प्रेक्षक: <strong>{liveStreamConfig?.baseViewers || 145}</strong>
+                  </span>
+                  <span style={{ backgroundColor: '#FEE2E2', color: '#991B1B', padding: '4px 10px', borderRadius: '8px', fontWeight: 600 }}>
+                    🙏 एकूण प्रणाम: <strong>{liveStreamConfig?.pranamCount || 0}</strong>
+                  </span>
                 </div>
 
                 <button
@@ -3422,9 +3480,15 @@ export const AdminDashboardPage: React.FC = () => {
             {/* Instant Preview Box */}
             {liveStreamUrl && (
               <div style={{ marginTop: '24px' }}>
-                <h4 style={{ fontSize: '1rem', color: 'var(--color-maroon-800)', marginBottom: '10px', fontWeight: 700 }}>
-                  📺 थेट प्रक्षेपण पूर्वदृश्य (Live Player Preview)
-                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                  <h4 style={{ fontSize: '1rem', color: 'var(--color-maroon-800)', margin: 0, fontWeight: 700 }}>
+                    📺 थेट प्रक्षेपण पूर्वदृश्य (Live Player Preview)
+                  </h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#DC2626', fontWeight: 700, backgroundColor: '#FEF2F2', padding: '3px 10px', borderRadius: '12px', border: '1px solid #FECACA' }}>
+                    <Users size={14} />
+                    <span>{liveStreamViewers || 145} भाविक लाईव्ह पाहत आहेत</span>
+                  </div>
+                </div>
                 {extractYouTubeId(liveStreamUrl) ? (
                   <div style={{ width: '100%', maxWidth: '640px', aspectRatio: '16/9', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '2px solid var(--color-gold-500)', boxShadow: 'var(--shadow-md)' }}>
                     <iframe

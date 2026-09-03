@@ -1,13 +1,23 @@
 import React, { useState } from 'react';
-import { Radio, Share2, Heart, ExternalLink, Sparkles, Volume2, ShieldCheck } from 'lucide-react';
+import { Radio, Share2, Heart, ExternalLink, Sparkles, Users, Eye } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useMandal } from '../../context/MandalContext';
+import { useAuth } from '../../context/AuthContext';
 import { extractYouTubeId } from '../../types/livestream';
+import { useLivePresence } from '../../services/livePresenceService';
 
 export const LiveStreamCard: React.FC = () => {
   const { liveStreamConfig, incrementPranam } = useMandal();
+  const { user } = useAuth();
   const [hasBlessed, setHasBlessed] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // 100% Real-Time Live Presence Tracking across Firebase Firestore & BroadcastChannel
+  const realActiveViewers = useLivePresence(Boolean(liveStreamConfig?.isLive), user?.displayName || 'भाविक');
+
+  // Total viewers = Real active connected sessions + any optional base count
+  const baseOffset = liveStreamConfig?.baseViewers && liveStreamConfig.baseViewers > 1 ? (liveStreamConfig.baseViewers - 1) : 0;
+  const liveViewers = realActiveViewers + baseOffset;
 
   if (!liveStreamConfig || !liveStreamConfig.isLive) {
     return null;
@@ -60,57 +70,62 @@ export const LiveStreamCard: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl border border-red-500/30 bg-gradient-to-br from-red-950/90 via-amber-950/80 to-stone-900 text-white backdrop-blur-xl transition-all duration-300 hover:border-red-500/50 mb-8">
-      {/* Glow Effects */}
-      <div className="absolute -top-24 -left-24 w-64 h-64 bg-red-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
-
+    <div className="live-stream-card">
       {/* Header Info */}
-      <div className="relative p-4 md:p-5 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/20">
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center">
-            <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-600 text-white shadow-lg shadow-red-600/40">
-              <Radio className="w-3.5 h-3.5 animate-pulse" />
-              LIVE
-            </span>
-          </div>
+      <div className="live-stream-header">
+        <div className="live-stream-title-group">
+          <span className="live-badge-pulse">
+            <Radio size={15} className="animate-pulse" />
+            LIVE
+          </span>
           <div>
-            <h3 className="font-bold text-base md:text-lg text-amber-200 flex items-center gap-2">
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FDE68A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               {liveStreamConfig.title || 'सार्वजनिक बाल दुर्गा उत्सव - थेट प्रक्षेपण'}
             </h3>
             {liveStreamConfig.description && (
-              <p className="text-xs text-amber-100/80 line-clamp-1">
+              <p style={{ fontSize: '0.82rem', color: 'rgba(254, 243, 199, 0.85)', margin: '2px 0 0 0' }}>
                 {liveStreamConfig.description}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-medium bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-full text-amber-300">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-          <span>{liveStreamConfig.pranamCount || 0} भाविकांनी प्रणाम केला</span>
+        <div className="live-stream-stats-group">
+          {/* Active Live Viewers Pill with Glowing Radar */}
+          <div className="live-active-pill">
+            <span className="live-green-radar" />
+            <Users size={15} color="#34D399" />
+            <span>
+              <strong style={{ color: '#FFFFFF', fontSize: '0.95rem', marginRight: '4px' }}>{liveViewers}</strong>
+              भाविक लाईव्ह पाहत आहेत
+            </span>
+          </div>
+
+          {/* Pranam / Blessings Count */}
+          <div className="live-pranam-pill">
+            <Sparkles size={14} color="#FBBF24" />
+            <span><strong>{liveStreamConfig.pranamCount || 0}</strong> भाविकांनी प्रणाम केला</span>
+          </div>
         </div>
       </div>
 
       {/* Embedded Video Area */}
-      <div className="relative w-full aspect-video bg-black/90 flex items-center justify-center">
+      <div className="live-video-container">
         {embedUrl ? (
           <iframe
             key={videoId}
             src={embedUrl}
             title={liveStreamConfig.title}
-            className="w-full h-full border-0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
           />
         ) : (
-          <div className="text-center p-8 flex flex-col items-center gap-3">
-            <Radio className="w-12 h-12 text-red-400 animate-bounce" />
-            <p className="text-amber-200 font-semibold text-sm">
+          <div style={{ textAlign: 'center', padding: '32px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <Radio size={48} color="#EF4444" className="animate-bounce" />
+            <p style={{ color: '#FDE68A', fontWeight: 700, fontSize: '1rem', margin: 0 }}>
               थेट प्रक्षेपण सुरू आहे, परंतु लिंक अपडेट केली जात आहे...
             </p>
-            <p className="text-xs text-stone-400">
+            <p style={{ color: '#D1D5DB', fontSize: '0.82rem', margin: 0 }}>
               कृपया काही सेकंदात पुन्हा तपासा किंवा थेट युट्यूबवर पहा.
             </p>
           </div>
@@ -118,40 +133,45 @@ export const LiveStreamCard: React.FC = () => {
       </div>
 
       {/* Action Footer */}
-      <div className="p-4 bg-black/30 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 border-t border-white/10">
-        <div className="flex items-center gap-2">
+      <div className="live-stream-footer">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
+            type="button"
             onClick={handlePranam}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 ${
-              hasBlessed
-                ? 'bg-amber-400 text-stone-900 scale-105'
-                : 'bg-gradient-to-r from-amber-500 to-red-500 text-white hover:from-amber-400 hover:to-red-400 shadow-amber-500/25'
-            }`}
+            className={`btn-pranam-festive ${hasBlessed ? 'btn-pranam-blessed' : ''}`}
           >
-            <Heart className={`w-4 h-4 ${hasBlessed ? 'fill-stone-900 animate-bounce' : 'fill-white/30'}`} />
+            <Heart size={18} fill={hasBlessed ? '#1F1D1A' : '#FFFFFF'} />
             <span>🙏 भावपूर्ण प्रणाम ({liveStreamConfig.pranamCount || 0})</span>
           </button>
 
           <button
+            type="button"
             onClick={handleShare}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium bg-white/10 hover:bg-white/20 text-white transition-all border border-white/10"
+            className="btn-share-festive"
           >
-            <Share2 className="w-4 h-4 text-emerald-400" />
-            <span>{copied ? 'कॉपी झाले!' : 'शेअर करा'}</span>
+            <Share2 size={16} color="#34D399" />
+            <span>{copied ? '✅ लिंक कॉपी झाली!' : '📤 शेअर करा'}</span>
           </button>
         </div>
 
-        {liveStreamConfig.youtubeUrl && (
-          <a
-            href={liveStreamConfig.youtubeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-amber-300/90 hover:text-amber-200 transition-colors bg-black/40 px-3 py-1.5 rounded-lg border border-amber-500/20"
-          >
-            <span>YouTube वर उघडा</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#FDE68A', background: 'rgba(255,255,255,0.08)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)' }}>
+            <Eye size={14} color="#FBBF24" />
+            <span><strong>{liveViewers}</strong> जण सोबत पाहत आहेत</span>
+          </div>
+
+          {liveStreamConfig.youtubeUrl && (
+            <a
+              href={liveStreamConfig.youtubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-youtube-link"
+            >
+              <span>YouTube वर उघडा</span>
+              <ExternalLink size={13} />
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );
