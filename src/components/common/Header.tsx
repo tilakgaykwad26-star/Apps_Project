@@ -390,16 +390,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
                 </div>
               )}
             </div>
-          ) : (
-            <button
-              onClick={() => onNavigate('members')}
-              className="btn btn-primary btn-sm"
-              style={{ fontSize: '0.82rem' }}
-            >
-              <User size={14} />
-              <span>{t.nav.login}</span>
-            </button>
-          )}
+          ) : null}
 
           {/* Mobile Hamburger Toggle */}
           <button
@@ -467,13 +458,13 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
               })}
             </div>
 
-            <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {isAuthenticated && user && (
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-maroon-800)', fontWeight: 600 }}>
-                  {user.displayName}
-                </div>
-              )}
-              {isAuthenticated ? (
+            {isAuthenticated && (
+              <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {user && (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-maroon-800)', fontWeight: 600 }}>
+                    {user.displayName}
+                  </div>
+                )}
                 <button
                   onClick={() => { logout(); setIsMobileDrawerOpen(false); }}
                   className="btn btn-secondary btn-sm"
@@ -482,17 +473,8 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
                   <LogOut size={16} />
                   <span>{t.nav.logout}</span>
                 </button>
-              ) : (
-                <button
-                  onClick={() => handleLinkClick('members')}
-                  className="btn btn-primary btn-sm"
-                  style={{ width: '100%' }}
-                >
-                  <User size={16} />
-                  <span>{t.nav.login} / {t.nav.register}</span>
-                </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </>
       )}
