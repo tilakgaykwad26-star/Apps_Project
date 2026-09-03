@@ -523,23 +523,7 @@ export const MandalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteMemberPayment = async (id: string) => {
-    setPayments((prev) => {
-      const target = prev.find((p) => p.id === id);
-      if (!target) return prev.filter((p) => p.id !== id);
-
-      const phoneKey = target.memberPhone ? target.memberPhone.replace(/\D/g, '').slice(-10) : '';
-
-      return prev.filter((p) => {
-        if (p.id === id) return false;
-        if (p.paymentType === 'annual_subscription' && p.financialYear === target.financialYear) {
-          const matchMember =
-            (p.memberId && target.memberId && p.memberId === target.memberId) ||
-            (phoneKey && p.memberPhone && p.memberPhone.replace(/\D/g, '').slice(-10) === phoneKey);
-          if (matchMember) return false;
-        }
-        return true;
-      });
-    });
+    setPayments((prev) => prev.filter((p) => p.id !== id));
     logAction('payment_record' as any, 'payments', id, { action: 'delete' });
     deleteFromFirestore(COLLECTIONS.PAYMENTS, id);
   };

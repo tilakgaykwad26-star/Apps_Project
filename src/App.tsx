@@ -20,7 +20,7 @@ import { MemberPortalPage } from './pages/MemberPortalPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 
 const AppContent: React.FC = () => {
-  const [currentView, setCurrentView] = useState<string>('contact');
+  const [currentView, setCurrentView] = useState<string>('home');
   const { isSuperAdmin, isTreasurer, isCommitteeAdmin } = useAuth();
 
   const handleNavigate = (view: string) => {

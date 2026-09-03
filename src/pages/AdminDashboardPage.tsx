@@ -1569,10 +1569,10 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
   const handleRejectMemberPayment = async (p: any) => {
-    if (confirm(`खात्री करा: "${p.memberName}" यांची ₹ ${p.amount} ची ऑनलाईन वर्गणी नोंद नाकारायची (Reject) आहे का?`)) {
+    if (confirm(`खात्री करा: "${p.memberName}" यांची ₹ ${p.amount} ची ऑनलाईन वर्गणी नोंद बँक खात्यात पैसे जमा न झाल्यामुळे नाकारायची (Reject) आहे का?`)) {
       try {
         await deleteMemberPayment(p.id);
-        showSuccess('वर्गणी नोंद यशस्वीरीत्या नाकारली.');
+        showSuccess(`₹ ${p.amount} ची प्रलंबित वर्गणी नोंद यशस्वीरीत्या नाकारण्यात (Reject) आली.`);
       } catch (e) {
         showError('वर्गणी नाकारताना त्रुटी आली.');
       }
@@ -2689,23 +2689,45 @@ export const AdminDashboardPage: React.FC = () => {
                                   });
                                   if (pendingPayment) {
                                     return (
-                                      <button
-                                        onClick={() => handleVerifyMemberPayment(pendingPayment)}
-                                        className="btn btn-sm"
-                                        style={{
-                                          fontSize: '0.78rem',
-                                          gap: '4px',
-                                          backgroundColor: '#16A34A',
-                                          borderColor: '#16A34A',
-                                          color: '#FFFFFF',
-                                          fontWeight: 800,
-                                          boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)'
-                                        }}
-                                        title="बँक खात्यात जमा पडताळणी करा व WhatsApp पावती पाठवा"
-                                      >
-                                        <CheckCircle size={13} />
-                                        <span>⏳ वर्गणी पडताळणी करा ({formatINR(pendingPayment.amount)})</span>
-                                      </button>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <button
+                                          onClick={() => handleVerifyMemberPayment(pendingPayment)}
+                                          className="btn btn-sm"
+                                          style={{
+                                            fontSize: '0.78rem',
+                                            gap: '4px',
+                                            backgroundColor: '#16A34A',
+                                            borderColor: '#16A34A',
+                                            color: '#FFFFFF',
+                                            fontWeight: 800,
+                                            boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
+                                            whiteSpace: 'nowrap'
+                                          }}
+                                          title="बँक खात्यात पैसे जमा झाल्याची खात्री करून पडताळणी करा व WhatsApp पावती पाठवा"
+                                        >
+                                          <CheckCircle size={13} />
+                                          <span>✓ वर्गणी पडताळणी करा ({formatINR(pendingPayment.amount)})</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleRejectMemberPayment(pendingPayment)}
+                                          className="btn btn-sm"
+                                          style={{
+                                            fontSize: '0.78rem',
+                                            gap: '4px',
+                                            backgroundColor: '#DC2626',
+                                            borderColor: '#DC2626',
+                                            color: '#FFFFFF',
+                                            fontWeight: 700,
+                                            padding: '4px 8px',
+                                            boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
+                                            whiteSpace: 'nowrap'
+                                          }}
+                                          title="बँकेत पैसे जमा झाले नसतील तर ही वर्गणी नोंद नाकारा (Reject)"
+                                        >
+                                          <Trash2 size={13} />
+                                          <span>✕ नाकारा</span>
+                                        </button>
+                                      </div>
                                     );
                                   }
                                 }

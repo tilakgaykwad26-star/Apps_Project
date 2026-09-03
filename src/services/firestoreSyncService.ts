@@ -40,9 +40,7 @@ export function subscribeToCollection<T extends { id: string }>(
         snapshot.forEach((docSnap) => {
           items.push({ id: docSnap.id, ...docSnap.data() } as T);
         });
-        if (items.length > 0) {
-          onUpdate(items);
-        }
+        onUpdate(items);
       },
       (err) => {
         console.warn(`[FirestoreSync] Snapshot error for ${collectionName}:`, err);

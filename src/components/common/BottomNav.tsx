@@ -17,12 +17,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentView, onNavigate })
     { key: 'events', label: t.nav.events, icon: Calendar },
     { key: 'donate', label: t.nav.donate, icon: HeartHandshake, highlight: true },
     { key: 'notices', label: t.nav.notices, icon: Bell },
-    { key: 'members', label: t.nav.members, icon: User },
+    (isSuperAdmin || isTreasurer || isCommitteeAdmin)
+      ? { key: 'admin', label: t.nav.admin, icon: ShieldCheck, highlight: false }
+      : { key: 'members', label: t.nav.members, icon: User, highlight: false },
   ];
-
-  if (isSuperAdmin || isTreasurer || isCommitteeAdmin) {
-    items[4] = { key: 'admin', label: t.nav.admin, icon: ShieldCheck, highlight: false };
-  }
 
   return (
     <nav className="bottom-nav-bar">

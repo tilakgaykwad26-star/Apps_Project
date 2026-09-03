@@ -182,6 +182,21 @@ const DEMO_USERS: Record<string, { user: AppUser; member?: Member }> = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getAllRawStoredMembers(): Member[] {
+  try {
+    const saved = localStorage.getItem('dm_members');
+    if (saved) {
+      const parsed: Member[] = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('[AuthContext] Failed to load dm_members', e);
+  }
+  return [];
+}
+
 function getAllStoredMembers(): Member[] {
   try {
     const saved = localStorage.getItem('dm_members');
@@ -388,8 +403,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = { ...memberProfile, ...data, updatedAt: new Date().toISOString() };
     setMemberProfile(updated);
 
-    // Also persist in dm_members
-    const all = getAllStoredMembers();
+    // Also persist in dm_members safely preserving all records
+    const all = getAllRawStoredMembers();
     const updatedList = all.map((m) => (m.id === memberProfile.id ? updated : m));
     try {
       localStorage.setItem('dm_members', JSON.stringify(updatedList));
