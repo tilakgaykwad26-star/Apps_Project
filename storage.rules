@@ -14,28 +14,36 @@ service firebase.storage {
       return request.resource.size < 5 * 1024 * 1024;
     }
 
+    function isSuperAdmin() {
+      return isAuthenticated() && (request.auth.token.role == 'super_admin');
+    }
+
+    function isContentAdmin() {
+      return isAuthenticated() && (request.auth.token.role in ['super_admin', 'committee_admin', 'content_manager']);
+    }
+
     // Public Assets & Gallery Images
     match /gallery/{albumId}/{fileName} {
       allow read: if true;
-      allow write: if isAuthenticated() && isImage() && isLessThan5MB();
+      allow write: if isContentAdmin() && isImage() && isLessThan5MB();
     }
 
-    // Member Profile Photos
+    // Member Profile Photos (Only own profile or super admin)
     match /members/{memberId}/{fileName} {
       allow read: if true;
-      allow write: if isAuthenticated() && isImage() && isLessThan5MB();
+      allow write: if isAuthenticated() && (request.auth.uid == memberId || isSuperAdmin()) && isImage() && isLessThan5MB();
     }
 
     // Notice Attachments (PDF / Documents)
     match /notices/{noticeId}/{fileName} {
       allow read: if true;
-      allow write: if isAuthenticated() && request.resource.size < 10 * 1024 * 1024;
+      allow write: if isContentAdmin() && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Sponsor Logos
     match /sponsors/{sponsorId}/{fileName} {
       allow read: if true;
-      allow write: if isAuthenticated() && isImage() && isLessThan5MB();
+      allow write: if isContentAdmin() && isImage() && isLessThan5MB();
     }
   }
 }

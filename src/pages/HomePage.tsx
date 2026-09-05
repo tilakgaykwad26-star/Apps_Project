@@ -214,7 +214,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenDonateModa
           /* MODE B: STANDARD TEXT + BACKGROUND BANNER */
           <div className="container" style={{ position: 'relative', zIndex: 2, width: '100%' }}>
             <div key={currentSlide.id} className="hero-slide-enter" style={{ maxWidth: '820px' }}>
-              
+
               {/* Prominent Live Broadcast Active Bar */}
               {liveStreamConfig?.isLive && (
                 <div

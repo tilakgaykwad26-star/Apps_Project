@@ -19,12 +19,34 @@ import { ContactPage } from './pages/ContactPage';
 import { MemberPortalPage } from './pages/MemberPortalPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 
+const VALID_VIEWS = ['home', 'about', 'events', 'gallery', 'notices', 'donate', 'members', 'contact', 'admin'];
+
+const getViewFromHash = (): string => {
+  if (typeof window === 'undefined') return 'home';
+  const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  return VALID_VIEWS.includes(hash) ? hash : 'home';
+};
+
 const AppContent: React.FC = () => {
-  const [currentView, setCurrentView] = useState<string>('home');
+  const [currentView, setCurrentView] = useState<string>(() => getViewFromHash());
   const { isSuperAdmin, isTreasurer, isCommitteeAdmin } = useAuth();
+
+  // Listen to browser hash changes (Refresh, Back, Forward, Direct bookmark link)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const view = getViewFromHash();
+      setCurrentView(view);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const handleNavigate = (view: string) => {
     setCurrentView(view);
+    if (window.location.hash !== `#/${view}`) {
+      window.location.hash = `#/${view}`;
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

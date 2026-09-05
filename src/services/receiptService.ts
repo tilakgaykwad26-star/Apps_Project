@@ -5,6 +5,7 @@ import { MemberPayment } from '../types/payment';
 import { MANDAL_CONFIG } from '../config/constants';
 import { formatIndianDate } from '../utils/dateUtils';
 import { numberToEnglishWords } from '../utils/currencyUtils';
+import { formatNameForPDF, devanagariToLatin } from '../utils/textUtils';
 
 // Helper to format currency cleanly for PDF without unsupported unicode symbols
 function formatAmountForPDF(amount: number): string {
@@ -98,7 +99,8 @@ export function generateDonationReceiptPDF(donation: Donation): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.text('Donor Name:', 16, boxY + 15);
   doc.setFont('helvetica', 'bold');
-  doc.text(donation.isAnonymous ? 'Anonymous Devotee (Gupt Daan)' : (donation.donorName || 'Devotee'), 44, boxY + 15);
+  const safeDonorName = donation.isAnonymous ? 'Anonymous Devotee (Gupt Daan)' : formatNameForPDF(donation.donorName);
+  doc.text(safeDonorName, 44, boxY + 15);
 
   doc.setFont('helvetica', 'normal');
   doc.text('Mobile No:', 16, boxY + 23);
@@ -118,7 +120,7 @@ export function generateDonationReceiptPDF(donation: Donation): jsPDF {
 
   doc.setFont('helvetica', 'normal');
   doc.text('City / Village:', 16, boxY + 39);
-  doc.text(donation.donorCity || 'Chop / Koregaon', 44, boxY + 39);
+  doc.text(devanagariToLatin(donation.donorCity || 'Chop / Koregaon'), 44, boxY + 39);
 
   // 7. Amount Highlight Box
   const amountY = boxY + 56;
@@ -269,7 +271,7 @@ export function generateSubscriptionReceiptPDF(payment: MemberPayment): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.text('Member Name:', 16, boxY + 15);
   doc.setFont('helvetica', 'bold');
-  doc.text(payment.memberName || 'Mandal Member', 44, boxY + 15);
+  doc.text(formatNameForPDF(payment.memberName || 'Mandal Member'), 44, boxY + 15);
 
   doc.setFont('helvetica', 'normal');
   doc.text('Mobile No:', 16, boxY + 23);
@@ -281,7 +283,7 @@ export function generateSubscriptionReceiptPDF(payment: MemberPayment): jsPDF {
 
   doc.setFont('helvetica', 'normal');
   doc.text('Recorded By:', 16, boxY + 39);
-  doc.text(payment.recordedByName || payment.recordedBy || 'Online Banking', 44, boxY + 39);
+  doc.text(formatNameForPDF(payment.recordedByName || payment.recordedBy || 'Online Banking'), 44, boxY + 39);
 
   // 7. Amount Box
   const amountY = boxY + 53;

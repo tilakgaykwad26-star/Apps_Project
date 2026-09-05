@@ -62,6 +62,15 @@ export const createRazorpayOrder = functions.https.onCall(async (data, context) 
   }
 });
 
+// Helper to compute Indian Financial Year (April 1 to March 31)
+function getIndianFiscalYear(): string {
+  const now = new Date();
+  const month = now.getMonth(); // 0 = Jan, 1 = Feb, 2 = Mar
+  const startYear = month < 3 ? now.getFullYear() - 1 : now.getFullYear();
+  const nextYearShort = String(startYear + 1).slice(-2);
+  return `${startYear}-${nextYearShort}`;
+}
+
 /**
  * 2. Server-Side HMAC-SHA256 Signature Verification
  */
@@ -70,6 +79,22 @@ export const verifyRazorpayPayment = functions.https.onCall(async (data, context
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing payment verification parameters');
+  }
+
+  // Idempotency check: prevent duplicate processing or receipt overwrites
+  const donationRef = db.collection('donations').doc(razorpay_order_id);
+  const existingDoc = await donationRef.get();
+
+  if (existingDoc.exists) {
+    const existingData = existingDoc.data();
+    if (existingData?.paymentStatus === 'successful' && existingData?.receiptNumber) {
+      return {
+        success: true,
+        receiptNumber: existingData.receiptNumber,
+        message: 'Payment was already verified and confirmed',
+        isDuplicate: true,
+      };
+    }
   }
 
   // Compute expected HMAC
@@ -84,21 +109,32 @@ export const verifyRazorpayPayment = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError('permission-denied', 'Payment signature verification failed');
   }
 
-  // Generate official receipt number
-  const currentYear = new Date().getFullYear();
-  const nextYearShort = String(currentYear + 1).slice(-2);
-  const fy = `${currentYear}-${nextYearShort}`;
-  const receiptNumber = `DM/${fy}/DON-${Math.floor(1000 + Math.random() * 9000)}`;
+  // Generate official fiscal receipt number (e.g. DM/2026-27/DON-XXXX)
+  const fy = getIndianFiscalYear();
+  const timestampPart = Date.now().toString().slice(-4);
+  const randomPart = Math.floor(100 + Math.random() * 900);
+  const receiptNumber = `DM/${fy}/DON-${timestampPart}${randomPart}`;
 
   // Atomically update donation document in Firestore
-  const donationRef = db.collection('donations').doc(razorpay_order_id);
-  await donationRef.update({
+  await donationRef.set({
     paymentStatus: 'successful',
     razorpayPaymentId: razorpay_payment_id,
     razorpaySignature: razorpay_signature,
     receiptNumber,
     verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
+  }, { merge: true });
+
+  // Also sync to dm_donations for client compatibility
+  try {
+    await db.collection('dm_donations').doc(razorpay_order_id).set({
+      paymentStatus: 'successful',
+      razorpayPaymentId: razorpay_payment_id,
+      receiptNumber,
+      verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch (err) {
+    console.warn('Sync to dm_donations optional warning:', err);
+  }
 
   return {
     success: true,
@@ -118,34 +154,47 @@ export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+  // Use rawBody buffer if available for accurate HMAC verification
+  const rawBody = (req as any).rawBody ? (req as any).rawBody.toString('utf8') : JSON.stringify(req.body);
+
   const expectedSignature = crypto
     .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
-    .update(JSON.stringify(req.body))
+    .update(rawBody)
     .digest('hex');
 
   if (expectedSignature !== signature) {
+    console.error('Invalid webhook signature detected');
     res.status(400).send('Invalid signature');
     return;
   }
 
-  const event = req.body.event;
-  const payload = req.body.payload;
+  const event = req.body?.event;
+  const payload = req.body?.payload;
 
-  if (event === 'payment.captured') {
+  if (event === 'payment.captured' && payload?.payment?.entity) {
     const payment = payload.payment.entity;
     const orderId = payment.order_id;
 
     if (orderId) {
       const docRef = db.collection('donations').doc(orderId);
-      await docRef.set(
-        {
-          paymentStatus: 'successful',
-          razorpayPaymentId: payment.id,
-          amount: payment.amount / 100,
-          capturedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
+      const docSnap = await docRef.get();
+      const existingData = docSnap.exists ? docSnap.data() : null;
+
+      if (!existingData || existingData.paymentStatus !== 'successful') {
+        const fy = getIndianFiscalYear();
+        const receiptNumber = existingData?.receiptNumber || `DM/${fy}/DON-${Date.now().toString().slice(-6)}`;
+        
+        await docRef.set(
+          {
+            paymentStatus: 'successful',
+            razorpayPaymentId: payment.id,
+            amount: payment.amount / 100,
+            receiptNumber,
+            capturedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
     }
   }
 

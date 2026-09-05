@@ -41,35 +41,37 @@ service cloud.firestore {
     // --- Users Collection ---
     match /dm_users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isOwner(userId);
-      allow update: if isOwner(userId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && (!('role' in request.resource.data) || request.resource.data.role == 'member');
+      allow update: if isSuperAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role);
       allow delete: if isSuperAdmin();
     }
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isOwner(userId);
-      allow update: if isOwner(userId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && (!('role' in request.resource.data) || request.resource.data.role == 'member');
+      allow update: if isSuperAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role);
       allow delete: if isSuperAdmin();
     }
 
     // --- Members Collection ---
     match /dm_members/{memberId} {
       allow read: if true;
-      allow write: if true; // Allows offline demo sync & committee admins
+      allow create, update: if isCommitteeAdmin() || isSuperAdmin();
+      allow delete: if isSuperAdmin();
     }
     match /members/{memberId} {
       allow read: if true;
-      allow write: if true;
+      allow create, update: if isCommitteeAdmin() || isSuperAdmin();
+      allow delete: if isSuperAdmin();
     }
 
     // --- Events & RSVPs ---
     match /dm_events/{eventId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isContentManager() || isSuperAdmin();
     }
     match /events/{eventId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isContentManager() || isSuperAdmin();
     }
     
     match /dm_event_rsvps/{rsvpId} {
@@ -82,79 +84,87 @@ service cloud.firestore {
     // --- Photo Gallery & Images ---
     match /dm_albums/{albumId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isContentManager() || isSuperAdmin();
     }
     match /dm_images/{imageId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isContentManager() || isSuperAdmin();
     }
     match /gallery_albums/{albumId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isContentManager() || isSuperAdmin();
     }
     match /gallery_images/{imageId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isContentManager() || isSuperAdmin();
     }
 
     // --- Notices & Announcements ---
     match /dm_notices/{noticeId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isContentManager() || isSuperAdmin();
     }
     match /notices/{noticeId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isContentManager() || isSuperAdmin();
     }
 
     // --- Donations & Offerings ---
     match /dm_donations/{donationId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow create: if true; // Public devotees can create online donations
+      allow update, delete: if isTreasurer() || isSuperAdmin();
     }
     match /donations/{donationId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow create: if true; // Public devotees can create online donations
+      allow update, delete: if isTreasurer() || isSuperAdmin();
     }
 
     // --- Member Payments & Ledger ---
     match /dm_payments/{paymentId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow write: if isTreasurer() || isSuperAdmin();
     }
     match /payments/{paymentId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow write: if isTreasurer() || isSuperAdmin();
     }
 
     // --- Expenses ---
     match /dm_expenses/{expenseId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow write: if isTreasurer() || isSuperAdmin();
     }
     match /expenses/{expenseId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow write: if isTreasurer() || isSuperAdmin();
     }
 
     // --- Sponsors ---
     match /dm_sponsors/{sponsorId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isCommitteeAdmin() || isSuperAdmin();
     }
     match /sponsors/{sponsorId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isCommitteeAdmin() || isSuperAdmin();
     }
 
     // --- Committee Members ---
     match /dm_committee/{memberId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isSuperAdmin();
     }
     match /committee_members/{memberId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isSuperAdmin();
     }
 
     // --- Live Stream & Presence ---
     match /dm_live_stream/{docId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isContentManager() || isSuperAdmin();
     }
     match /dm_live_presence/{sessionId} {
       allow read, write: if true;
@@ -162,14 +172,16 @@ service cloud.firestore {
 
     // --- Security Audit Logs & Config ---
     match /dm_audit_logs/{logId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
     }
     match /dm_config/{configId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isSuperAdmin();
     }
     match /settings/{settingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isSuperAdmin();
     }
   }
 }
